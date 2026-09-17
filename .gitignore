@@ -1,0 +1,80 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Личные финансовые данные для снимков — в репозиторий не уезжают.
+# Без файла тесты снимков пропускаются сами (см. test/render_test.dart).
+sample-data.json
+test/shots/
+
+# Память проекта личная: инциденты и заметки для себя
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+
+# Снимки расхождений голденов
+/test/failures/
+
+# Ключи Firebase для пушей: как в Togetherly, в репозиторий не уезжает
+android/app/google-services.json
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+ios/Runner.xcworkspace/xcuserdata/
+ios/Runner.xcodeproj/xcuserdata/
+**/*.mode1v3
+**/*.mode2v3
+**/*.perspectivev3
+**/*.pbxuser
+**/DerivedData/
+
+# Ключ подписи и пароли рядом с ним не хранятся в репозитории НИКОГДА
+*.jks
+*.keystore
+key.properties

@@ -1,0 +1,91 @@
+name: togetherly_money
+description: Togetherly Wallet — финансы пары в экосистеме Togetherly. Форк Орбиты.
+publish_to: none
+version: 0.6.1+26
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Системные части интерфейса (выбор даты, меню копирования) без этого
+  # остаются английскими при любом переводе.
+  flutter_localizations:
+    sdk: flutter
+  # Хранилище: база лежит файлом в каталоге приложения, а не в вебовском
+  # localStorage с его пятью мегабайтами.
+  path_provider: ^2.1.5
+  http: ^1.2.2
+  # Пуши. Две системы: FCM держит система (нативно, через канал money/fcm), а
+  # запасная поднимает локальные уведомления сама — на прошивках без сервисов
+  # Google. Те же пакеты и те же версии, что в Togetherly.
+  flutter_local_notifications: ^21.0.0
+  flutter_foreground_task: ^9.2.2
+  intl: ^0.20.2
+  file_picker: ^8.1.7
+  share_plus: ^10.1.4
+  qr: ^4.0.0
+  centrifuge: ^0.20.0
+  package_info_plus: ^9.0.1
+  url_launcher: ^6.3.2
+  pocketbase: ^0.25.1
+  sign_in_with_apple: ^8.1.0
+  crypto: ^3.0.7
+  image: ^4.10.1
+  yandex_mobileads: ^8.4.0
+  # Снимки базы за каждый день: шифрует ТЕЛЕФОН, хранит сервер. AES-GCM и
+  # вывод ключа из фразы восстановления — чистый Dart, без нативных частей.
+  cryptography: ^2.7.0
+  # Замок на вход: отпечаток и лицо. PIN приложение считает само — своим
+  # солёным хешем, а не хранилищем пакета: пакет умеет спрашивать систему,
+  # а держать секрет он не обязан.
+  local_auth: ^2.3.0
+  in_app_purchase: ^3.3.0
+  in_app_purchase_android: ^0.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # Фон приветствия: сетка точек и крестиков на чёрном. Готовый рисунок
+    # вставляется КАК ЕСТЬ, а не повторяется кодом.
+    - assets/bg/welcome_grid.png
+    # Значок Togetherly у строки про общий аккаунт: готовая иконка
+    # приложения, вставленная КАК ЕСТЬ.
+    - assets/brand/togetherly.png
+  fonts:
+    # Шрифты общей ДНК: заголовки Unbounded, текст и числа Onest.
+    - family: Unbounded
+      fonts:
+        - asset: assets/fonts/Unbounded.ttf
+    - family: Onest
+      fonts:
+        - asset: assets/fonts/Onest.ttf
+    # Waoki и Geologica остались от прошлого вида; удалить после того, как
+    # старые экраны уйдут целиком.
+    - family: Waoki
+      fonts:
+        - asset: assets/fonts/Waoki.otf
+    - family: Geologica
+      fonts:
+        - asset: assets/fonts/Geologica-latin.ttf
+    - family: GeologicaCyr
+      fonts:
+        - asset: assets/fonts/Geologica-cyrillic.ttf
+    - family: GeologicaExt
+      fonts:
+        - asset: assets/fonts/Geologica-latin-ext.ttf
+    # Знаки интерфейса: MyNaUI (MIT). Контур и заливка — два шрифта с одной
+    # таблицей кодов, поэтому Myna.home и MynaSolid.home это один знак в двух
+    # видах. Так нижняя навигация наливается при выборе без своей отрисовки.
+    - family: Myna
+      fonts:
+        - asset: assets/fonts/Myna.ttf
+    - family: MynaSolid
+      fonts:
+        - asset: assets/fonts/MynaSolid.ttf

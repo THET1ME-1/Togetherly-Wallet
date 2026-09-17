@@ -1,0 +1,73 @@
+name: Сборки
+
+# Android и iOS собираются по кнопке и на каждую правку main. Подписи здесь
+# нет: ключ лежит вне репозитория, и открытая сборка нужна ровно для того,
+# чтобы доказать — приложение собирается на чистой машине.
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Сборка APK
+        # Без google-services.json плагин Firebase не применяется вовсе, а
+        # пуши от партнёра доставляет живой канал пары. Без ключа подписи
+        # Gradle берёт отладочный: такой APK ставится на чистое устройство, но
+        # не поверх настоящего — подписи не совпадут.
+        run: flutter build apk --release --split-per-abi --dart-define=STORE=github
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-unsigned
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 14
+
+  ios:
+    name: iOS без подписи
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Сборка iOS
+        # `--no-codesign`: сертификата разработчика у раннера нет и быть не
+        # должно. Эта сборка отвечает на один вопрос — компилируются ли поды и
+        # нативная часть после очередной правки.
+        run: flutter build ios --release --no-codesign --dart-define=STORE=appstore
+
+      - name: Размер сборки
+        run: du -sh build/ios/iphoneos/Runner.app

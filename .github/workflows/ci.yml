@@ -1,0 +1,54 @@
+name: Проверки
+
+# Анализ и тесты на каждую правку. Держим их отдельно от сборок: упавший тест
+# должен быть виден за две минуты, а не после двадцатиминутной сборки APK.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+
+jobs:
+  analyze-and-test:
+    name: Анализ и 819 проверок
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Зависимости
+        run: flutter pub get
+
+      - name: Анализ
+        run: flutter analyze
+
+      - name: Тесты
+        # Снимки экранов рисуются настоящими данными из sample-data.json, а он
+        # лежит вне репозитория: без него они пропускаются сами.
+        run: flutter test --reporter expanded
+
+      - name: Дубли ключей в словаре
+        # Одинаковый ключ в двух файлах не ругается на сборке, а валит поиск
+        # строки в рантайме: константная карта собирается из spread'ов, и
+        # `_createIndex` падает ассертом при первом же tr(). Так уже вышло
+        # дважды за день, поэтому проверка стоит в CI.
+        run: |
+          dupes=$(grep -h "^  '" lib/l10n/dict/*.dart | sort | uniq -d)
+          if [ -n "$dupes" ]; then
+            echo "Ключи словаря повторяются:"
+            echo "$dupes"
+            exit 1
+          fi
+          echo "дублей нет"

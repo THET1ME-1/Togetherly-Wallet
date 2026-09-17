@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Лист печатной палитры: тот же цвет, что у карточек в приложении.
+         Выбран заказчиком 14.09.2026 из восьми вариантов. -->
+    <color name="ic_launcher_background">#F5F5F5</color>
+</resources>

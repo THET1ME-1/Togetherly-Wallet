@@ -1,0 +1,185 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Уведомления с Android 13 спрашиваются у человека. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- Вторая система доставки: где пушей Google нет, живой канал держит
+         foreground-сервис. WAKE_LOCK нужен, чтобы соединение не засыпало в
+         Doze; BOOT_COMPLETED — чтобы доставка ожила после перезагрузки. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- Тактильный отклик замка: щелчок на цифру и на касание
+         отпечатка. Палец в этот момент на датчике, а глаза не на
+         экране (просьба человека 17.09.2026). -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <application
+        android:label="Togetherly Wallet"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Чтение банковских уведомлений: система сама поднимает службу,
+             когда приходит пуш, даже если приложение закрыто. Разрешение даёт
+             человек в настройках Android, отозвать может там же. -->
+        <service
+            android:name=".NoticeListener"
+            android:exported="false"
+            android:label="Уведомления банков"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+        <!-- После установки поверх и перезагрузки Android не всегда
+             возвращает связь со службой сам. Приёмник поднимает её, не
+             дожидаясь, пока человек откроет приложение. Действия защищены
+             системой, чужое приложение их не пришлёт. -->
+        <receiver
+            android:name=".NoticeKeeper"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
+        <!-- Сервис второй системы. ИМЯ КЛАССА МЕНЯТЬ НЕЛЬЗЯ: его ищет сам
+             плагин. Без android:stopWithTask — доставка переживает свайп из
+             недавних. -->
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false"/>
+
+        <!-- Пуши FCM. Баннер рисует система: в пуше едет notification, а
+             служба нужна для тихих пушей и обновления токена. -->
+        <service
+            android:name=".MoneyFcm"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+            </intent-filter>
+        </service>
+
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <!-- Видимость банковских приложений: экран «Уведомления банков»
+             показывает сперва те, что стоят на телефоне, и берёт у них
+             настоящий логотип. Разрешение на список ВСЕХ программ для этого не
+             нужно и не запрашивается; банк, которого здесь нет, всё равно
+             читается — знак ему достаётся из самого уведомления. -->
+        <package android:name="com.binance.dev"/>
+        <package android:name="com.garanti.cepsubesi"/>
+        <package android:name="com.google.android.apps.walletnfcrel"/>
+        <package android:name="com.idamob.tinkoff.android"/>
+        <package android:name="com.maib.maibank"/>
+        <package android:name="com.monobank"/>
+        <package android:name="com.n26.android"/>
+        <package android:name="com.otpbank.md"/>
+        <package android:name="com.paynet.md"/>
+        <package android:name="com.payoneer.consumer"/>
+        <package android:name="com.payoneer.mobile"/>
+        <package android:name="com.paypal.android.p2pmobile"/>
+        <package android:name="com.paysera.android"/>
+        <package android:name="com.revolut.revolut"/>
+        <package android:name="com.revolut.revolut.ro"/>
+        <package android:name="com.samsung.android.spay"/>
+        <package android:name="com.transferwise.android"/>
+        <package android:name="com.vtb.mobilebank"/>
+        <package android:name="com.wise.android"/>
+        <package android:name="com.ziraat.ziraatmobil"/>
+        <package android:name="ge.bog.mobile"/>
+        <package android:name="ge.tbcbank.mobile"/>
+        <package android:name="kz.halykbank.mobile"/>
+        <package android:name="kz.kaspi.mobile"/>
+        <package android:name="md.comertbank.mobile"/>
+        <package android:name="md.ecb.mobile"/>
+        <package android:name="md.eximbank.mobile"/>
+        <package android:name="md.fincombank.mobile"/>
+        <package android:name="md.maib.maibank"/>
+        <package android:name="md.maib.mobile"/>
+        <package android:name="md.micb.micbank"/>
+        <package android:name="md.micb.mobile"/>
+        <package android:name="md.otpbank.mobile"/>
+        <package android:name="md.procredit.mobile"/>
+        <package android:name="md.runpay.app"/>
+        <package android:name="md.victoriabank.mobile"/>
+        <package android:name="md.victoriabank.vbmobile"/>
+        <package android:name="ro.bcr.mobile"/>
+        <package android:name="ro.btrl.mobile"/>
+        <package android:name="ro.ing.mobile"/>
+        <package android:name="ru.akbars.mobile"/>
+        <package android:name="ru.alfabank.mobile.android"/>
+        <package android:name="ru.alfabank.oavdo.amc"/>
+        <package android:name="ru.bspb"/>
+        <package android:name="ru.dom.rf.mobile"/>
+        <package android:name="ru.gazprombank.android.mobilebank.app"/>
+        <package android:name="ru.mkb.mobile"/>
+        <package android:name="ru.mtsbank.mobile"/>
+        <package android:name="ru.otpbank.mobile"/>
+        <package android:name="ru.ozon.app.android"/>
+        <package android:name="ru.ozon.fintech.finance"/>
+        <package android:name="ru.pochtabank.mobile"/>
+        <package android:name="ru.psbank.mobile"/>
+        <package android:name="ru.raiffeisennews"/>
+        <package android:name="ru.rosbank.android"/>
+        <package android:name="ru.rshb.mbank"/>
+        <package android:name="ru.sbbol.mobile"/>
+        <package android:name="ru.sberbank.sbol"/>
+        <package android:name="ru.sberbankmobile"/>
+        <package android:name="ru.sovcombank.halva"/>
+        <package android:name="ru.tbank.mobile"/>
+        <package android:name="ru.uralsib.mobile"/>
+        <package android:name="ru.vtb24.mobilebanking.android"/>
+        <package android:name="ru.yandex.bank"/>
+        <package android:name="ua.com.cs.android.mono"/>
+        <package android:name="ua.privatbank.ap24"/>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Без этих двух Android 11 и новее не показывает приложению НИ
+             одного обработчика ссылок: launchUrl молча возвращает false, и
+             «Поддержка» с «Каналом» выглядят неработающими кнопками. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
+    </queries>
+</manifest>

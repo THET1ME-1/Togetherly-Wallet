@@ -1,0 +1,101 @@
+name: Релиз
+
+# Тег vX.Y.Z собирает подписанные APK и выкладывает их в GitHub Release.
+#
+# Подпись берётся из секретов репозитория. Их четыре, и без любого из них
+# сборка идёт отладочным ключом — такой APK не встанет поверх установленного,
+# поэтому в имени файла появляется «unsigned», чтобы его нельзя было спутать:
+#   KEYSTORE_BASE64   — сам .jks, закодированный `base64 -w0 wallet-release.jks`
+#   KEYSTORE_PASSWORD — пароль хранилища
+#   KEY_ALIAS         — имя ключа
+#   KEY_PASSWORD      — пароль ключа
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Версия для ручного прогона, например 0.6.1'
+        required: true
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+
+jobs:
+  release:
+    name: APK в релиз
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Тесты перед релизом
+        run: flutter test
+
+      - name: Ключ подписи
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || \
+             [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "Секретов подписи нет — собираем отладочным ключом."
+            exit 0
+          fi
+          mkdir -p "$HOME/keys"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$HOME/keys/wallet-release.jks"
+          cat > "$HOME/keys/wallet-key.properties" <<EOF
+          storeFile=$HOME/keys/wallet-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          echo "signed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Сборка
+        run: flutter build apk --release --split-per-abi --dart-define=STORE=github
+
+      - name: Имена файлов
+        id: names
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ -z "$version" ] || [ "$version" = "$GITHUB_REF_NAME" ]; then
+            version="${{ github.event.inputs.version }}"
+          fi
+          suffix=""
+          if [ "${{ steps.signing.outputs.signed }}" != "true" ]; then
+            suffix="-unsigned"
+          fi
+          mkdir -p out
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            src="build/app/outputs/flutter-apk/app-$abi-release.apk"
+            [ -f "$src" ] || continue
+            cp "$src" "out/Togetherly-Wallet-$version-$abi$suffix.apk"
+          done
+          ls -lh out
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Togetherly Wallet ${{ steps.names.outputs.version }}
+          files: out/*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: true
