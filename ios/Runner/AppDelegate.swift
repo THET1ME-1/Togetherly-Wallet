@@ -42,10 +42,14 @@ import UserNotifications
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
-    let channel = FlutterMethodChannel(
-      name: channelName,
-      binaryMessenger: engineBridge.applicationBinaryMessenger
-    )
+    // Мессенджер берётся у регистратора плагина — как в Togetherly: прямого
+    // `applicationBinaryMessenger` у моста движка нет.
+    guard let messenger = engineBridge.pluginRegistry
+      .registrar(forPlugin: "WalletPush")?
+      .messenger()
+    else { return }
+
+    let channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
     self.channel = channel
     channel.setMethodCallHandler { [weak self] call, result in
       guard let self else { return result(nil) }
@@ -130,6 +134,12 @@ import UserNotifications
     withCompletionHandler completionHandler:
       @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    completionHandler([.banner, .sound])
+    // `.banner` появился в iOS 14, а минимум у нас 13: на более старых
+    // система понимает только `.alert`.
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .sound])
+    } else {
+      completionHandler([.alert, .sound])
+    }
   }
 }
