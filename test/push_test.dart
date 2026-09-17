@@ -168,4 +168,90 @@ void main() {
       expect(push.settled, isTrue);
     });
   });
+
+  group('iPhone', () {
+    // На iOS второй системы доставки нет и быть не может: фоновый сервис с
+    // живым каналом — приём Android. Пока APNs не подключён, уведомление о
+    // записи партнёра приходило бы ровно тогда, когда человек и так смотрит в
+    // приложение, то есть никогда (17.09.2026).
+    const apple = MethodChannel('money/push');
+
+    void iphone({String? token, bool sandbox = false, bool granted = true}) {
+      messenger.setMockMethodCallHandler(apple, (call) async {
+        switch (call.method) {
+          case 'register':
+            return granted ? token : null;
+          case 'sandbox':
+            return sandbox;
+        }
+        return null;
+      });
+    }
+
+    tearDown(() => messenger.setMockMethodCallHandler(apple, null));
+
+    test('токен APNs уезжает с пометкой ios', () async {
+      final api = signedIn();
+      await api.session.signIn('me@example.com', 'pass');
+      iphone(token: 'apns-token');
+
+      final push = Push(channel: apple, onAndroid: false, onApple: true);
+      await push.start(api.session);
+
+      expect(push.token, 'apns-token');
+      expect(api.calls, contains('POST /api/money/device'));
+      final body = api.bodies.last;
+      expect(body['token'], 'apns-token');
+      expect(body['platform'], 'ios');
+    });
+
+    test('отладочная сборка помечается песочницей', () async {
+      // Токен из Xcode живёт в песочнице Apple, и боевой APNs отвечает по нему
+      // BadDeviceToken. Сервер разводит их по этой пометке.
+      final api = signedIn();
+      await api.session.signIn('me@example.com', 'pass');
+      iphone(token: 'apns-debug', sandbox: true);
+
+      final push = Push(channel: apple, onAndroid: false, onApple: true);
+      await push.start(api.session);
+
+      expect(api.bodies.last['platform'], 'ios_sandbox');
+    });
+
+    test('человек отказал — приложение работает молча', () async {
+      final api = signedIn();
+      await api.session.signIn('me@example.com', 'pass');
+      iphone(granted: false);
+
+      final push = Push(channel: apple, onAndroid: false, onApple: true);
+      await push.start(api.session);
+
+      expect(push.token, isNull);
+      expect(push.settled, isTrue);
+      expect(api.calls, isNot(contains('POST /api/money/device')));
+    });
+
+    test('поздний токен доезжает сам', () async {
+      // Человек думает над разрешением минуту, и Apple отвечает своим темпом:
+      // мост толкает токен, когда тот наконец приехал.
+      final api = signedIn();
+      await api.session.signIn('me@example.com', 'pass');
+      iphone(token: null);
+
+      final push = Push(channel: apple, onAndroid: false, onApple: true);
+      await push.start(api.session);
+      expect(api.calls, isNot(contains('POST /api/money/device')));
+
+      await messenger.handlePlatformMessage(
+        'money/push',
+        const StandardMethodCodec()
+            .encodeMethodCall(const MethodCall('token', 'late-token')),
+        (_) {},
+      );
+
+      expect(push.token, 'late-token');
+      expect(api.bodies.last['token'], 'late-token');
+      expect(api.bodies.last['platform'], 'ios');
+    });
+  });
 }

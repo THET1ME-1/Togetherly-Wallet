@@ -5,9 +5,9 @@
 	<!-- Вход через Apple обязателен там, где есть вход через Google и Яндекс
 	     (App Store Guideline 4.8), и системное окно спрашивается только с этим
 	     разрешением. -->
-	<!-- Пуши: отладочная сборка регистрируется в ПЕСОЧНИЦЕ Apple. -->
+	<!-- Пуши: сборка для TestFlight и App Store работает с боевым APNs. -->
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>

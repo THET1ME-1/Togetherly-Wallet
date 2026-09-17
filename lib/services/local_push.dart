@@ -36,7 +36,15 @@ class LocalPush {
       await _ln.initialize(
         settings: const InitializationSettings(
           android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(),
+          // Разрешение на iOS спрашивает нативный мост вместе с
+          // регистрацией в APNs (`AppDelegate.swift`): два источника одного
+          // запроса — верный способ показать человеку системное окно дважды
+          // и получить отказ.
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+          ),
         ),
       );
       final android = _ln.resolvePlatformSpecificImplementation<
