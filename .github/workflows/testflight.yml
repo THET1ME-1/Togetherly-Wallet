@@ -1,0 +1,99 @@
+name: TestFlight
+
+# Сборка iOS с подписью и отправка в TestFlight. Включается сама, когда в
+# секретах репозитория появятся пять значений; пока их нет, прогон честно
+# говорит об этом и заканчивается без ошибки — красный значок на репозитории,
+# в котором просто не настроен Apple, никому не помогает.
+#
+#   IOS_CERTIFICATE_P12      — сертификат разработчика, `base64 -w0 cert.p12`
+#   IOS_CERTIFICATE_PASSWORD — пароль к нему
+#   IOS_PROVISIONING_PROFILE — профиль App Store, `base64 -w0 profile.mobileprovision`
+#   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 — ключ App Store Connect API
+#                                            (.p8 целиком, тоже base64)
+on:
+  workflow_dispatch:
+  push:
+    tags: ['ios-v*']
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+
+jobs:
+  testflight:
+    name: IPA в TestFlight
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Есть ли ключи Apple
+        id: keys
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          if [ -z "$CERT" ] || [ -z "$PROFILE" ] || [ -z "$ASC_KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Ключей Apple в секретах нет — отправлять нечего и нечем."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: subosito/flutter-action@v2
+        if: steps.keys.outputs.ready == 'true'
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Сертификат и профиль во временную связку
+        if: steps.keys.outputs.ready == 'true'
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          # Своя связка ключей, а не системная: она живёт ровно этот прогон и
+          # уезжает вместе с машиной.
+          keychain="$RUNNER_TEMP/build.keychain"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+
+          echo "$CERT" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" \
+            -P "$CERT_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain"
+          security list-keychain -d user -s "$keychain" login.keychain
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$PROFILE" | base64 -d \
+            > "$HOME/Library/MobileDevice/Provisioning Profiles/wallet.mobileprovision"
+
+      - name: Сборка IPA
+        if: steps.keys.outputs.ready == 'true'
+        run: |
+          flutter pub get
+          flutter build ipa --release \
+            --dart-define=STORE=appstore \
+            --export-options-plist=ios/ExportOptions.plist
+
+      - name: Отправка в TestFlight
+        if: steps.keys.outputs.ready == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p "$HOME/private_keys"
+          echo "$ASC_KEY_P8" | base64 -d > "$HOME/private_keys/AuthKey_$ASC_KEY_ID.p8"
+          xcrun altool --upload-app -f build/ios/ipa/*.ipa -t ios \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.keys.outputs.ready == 'true'
+        with:
+          name: ipa
+          path: build/ios/ipa/*.ipa
+          retention-days: 14
