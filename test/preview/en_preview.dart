@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:togetherly_money/design/money_theme.dart';
 import 'package:togetherly_money/l10n/language.dart';
 import 'package:togetherly_money/l10n/strings.dart';
-import 'package:togetherly_money/screens/auth_screen.dart';
+import 'package:togetherly_money/screens/welcome_screen.dart';
 import 'package:togetherly_money/services/session.dart';
 import 'package:togetherly_money/widgets/app_sheet.dart';
 
@@ -42,7 +42,7 @@ void main() {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: MoneyTheme.light(),
-        home: AuthScreen(account: Session()),
+        home: WelcomeScreen(account: Session()),
       ),
     ));
     await tester.pumpAndSettle();

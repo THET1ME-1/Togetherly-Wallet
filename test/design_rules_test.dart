@@ -122,7 +122,7 @@ void main() {
         for (final e in fill.entries) {
           final painted = RegExp(
             r'(color|fillColor|backgroundColor|indicatorColor|selectedColor)'
-            r'\s*:\s*[^;]*' + RegExp.escape(e.key),
+            '\\s*:\\s*[^;]*${RegExp.escape(e.key)}',
           );
           if (painted.hasMatch(window)) families.add(e.value);
         }

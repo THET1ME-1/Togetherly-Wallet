@@ -25,6 +25,12 @@ import 'package:togetherly_money/screens/stats_screen.dart';
 /// Отрезок в снимках прибит к августу 2026 года — тому месяцу, за который
 /// собран `orbita-backup.json`. Иначе снимки пустеют при смене месяца и тест
 /// начинает падать сам по себе.
+/// Снимки рисуются НАСТОЯЩИМИ данными из `sample-data.json`, а он лежит вне
+/// репозитория: там личные финансы. Без файла эти проверки пропускаются —
+/// иначе форк и CI падали бы на первом же прогоне тем, чего у них быть не
+/// может.
+final bool hasSample = File('sample-data.json').existsSync();
+
 void main() {
   late Database db;
   final period = Period.month(DateTime(2026, 8, 15));
@@ -56,6 +62,7 @@ void main() {
       }
     }
 
+    if (!hasSample) return;
     final file = File('sample-data.json');
     final raw = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
     db = Database.fromJson((raw['data'] as Map).cast<String, dynamic>());
@@ -107,8 +114,8 @@ void main() {
         onDrill: (_, __, [period]) {},
       );
 
-  testWidgets('главная, светлая', (t) async => shoot(t, 'home-light', home));
-  testWidgets('главная, тёмная', (t) async => shoot(t, 'home-dark', home, dark: true));
+  testWidgets('главная, светлая', (t) async => shoot(t, 'home-light', home), skip: !hasSample);
+  testWidgets('главная, тёмная', (t) async => shoot(t, 'home-dark', home, dark: true), skip: !hasSample);
 
   testWidgets('категории', (t) async => shoot(
         t,
@@ -120,7 +127,7 @@ void main() {
           onDrill: (_, __, [period]) {},
           onEditCategories: () {},
         ),
-      ));
+      ), skip: !hasSample);
 
   testWidgets('категории, тёмная', (t) async => shoot(
         t,
@@ -133,13 +140,13 @@ void main() {
           onEditCategories: () {},
         ),
         dark: true,
-      ));
+      ), skip: !hasSample);
 
   testWidgets('статистика', (t) async => shoot(
         t,
         'stats',
         (store) => StatsScreen(store: store, period: period, onPeriod: (_) {}),
-      ));
+      ), skip: !hasSample);
 
   testWidgets('лента операций', (t) async => shoot(
         t,
@@ -152,7 +159,7 @@ void main() {
           onFilter: (_) {},
           onEdit: (_) {},
         ),
-      ));
+      ), skip: !hasSample);
 
   testWidgets('лента, тёмная', (t) async => shoot(
         t,
@@ -166,21 +173,21 @@ void main() {
           onEdit: (_) {},
         ),
         dark: true,
-      ));
+      ), skip: !hasSample);
 
   testWidgets('запись операции', (t) async => shoot(
         t,
         'new-op',
         (store) => OperationScreen(store: store),
         scaffold: false,
-      ));
+      ), skip: !hasSample);
 
   testWidgets('бюджеты', (t) async => shoot(
         t,
         'budgets',
         (store) => BudgetsScreen(store: store),
         scaffold: false,
-      ));
+      ), skip: !hasSample);
 
   // Цели наливаются: снимок ловит и воду, и ассорти знаков по ней.
   testWidgets('цели', (t) async => shoot(
@@ -188,12 +195,12 @@ void main() {
         'goals',
         (store) => GoalsScreen(store: store),
         scaffold: false,
-      ));
+      ), skip: !hasSample);
 
   testWidgets('настройки', (t) async => shoot(
         t,
         'settings',
         (store) => SettingsScreen(store: store),
         scaffold: false,
-      ));
+      ), skip: !hasSample);
 }

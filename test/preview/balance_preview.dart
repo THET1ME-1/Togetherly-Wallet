@@ -69,19 +69,6 @@ void main() {
         ),
       );
 
-  Future<void> shot(WidgetTester tester, String name) async {
-    await tester.runAsync(() async {
-      final boundary = tester.binding.renderViewElement!
-          .findRenderObject()! as RenderObject;
-      final repaint = boundary is RenderRepaintBoundary
-          ? boundary
-          : tester.binding.renderViews.first;
-      final image = await (repaint as RenderRepaintBoundary).toImage(pixelRatio: 1.6);
-      final data = await image.toByteData(format: ui.ImageByteFormat.png);
-      File('build/preview/$name.png').writeAsBytesSync(data!.buffer.asUint8List());
-    });
-  }
-
   testWidgets('свёрнут, развёрнут и отбор', (tester) async {
     tester.view.physicalSize = const Size(393 * 2, 900 * 2);
     tester.view.devicePixelRatio = 2.0;
