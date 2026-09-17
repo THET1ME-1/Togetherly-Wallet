@@ -1060,7 +1060,8 @@ class Store extends ChangeNotifier {
           accounts: myAccounts,
           categories: myCategories,
         ),
-        label: 'Новая пара',
+        // Тоже без отмены: пару человек сменил на СЕРВЕРЕ, и возврат старого
+        // хранилища разошёлся бы с тем, что там лежит.
       );
       _saveSettings();
       return;
@@ -1076,7 +1077,11 @@ class Store extends ChangeNotifier {
     // 13.09.2026: вход в аккаунт с живой парой давал нули.
     if (was != now && now.isNotEmpty) _syncMark = 0;
 
-    _apply(_db.copyWith(pair: value), label: 'Пара обновлена');
+    // Без `label`: полоса отмены — ответ на ДЕЙСТВИЕ человека, а состав пары
+    // приезжает сам при каждом запуске и на каждом круге синхронизации. До
+    // 17.09.2026 она вставала при каждом входе с надписью «Пара обновлена»,
+    // перекрывала сальдо и предлагала отменить то, чего никто не делал.
+    _apply(_db.copyWith(pair: value));
     if (was != now) _saveSettings();
   }
 
@@ -1889,6 +1894,9 @@ class Store extends ChangeNotifier {
       _ratesAt == 0 ? null : DateTime.fromMillisecondsSinceEpoch(_ratesAt);
 
   /// Курсы целиком — из свежей выдачи сервера.
+  ///
+  /// Отмену не заводит по той же причине, что и состав пары: курсы приезжают
+  /// сами, человек их не трогал, и «Отменить» вернуло бы вчерашние цифры.
   void setRates(Map<String, double> next, {String source = ''}) {
     final rates = <String, double>{};
     for (final e in next.entries) {
@@ -1903,7 +1911,7 @@ class Store extends ChangeNotifier {
       _saveSettings();
     }
     _mark('settings:base');
-    _apply(_db.copyWith(rates: {..._db.rates, ...rates}), label: 'Курсы');
+    _apply(_db.copyWith(rates: {..._db.rates, ...rates}));
   }
 
   /// Валюты, которые реально встречаются у счетов и операций. Курс нужен
