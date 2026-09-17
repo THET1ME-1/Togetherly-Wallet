@@ -5,10 +5,6 @@ const Map<String, Map<String, String>> miscStrings = {
     'en': 'Read the receipt and record the expense',
   },
 
-  'agentDone': {
-    'ru': 'Записано из чата',
-    'en': 'Saved from the chat',
-  },
   'agentApply': {
     'ru': 'Сделать',
     'en': 'Do it',

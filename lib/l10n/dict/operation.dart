@@ -59,14 +59,6 @@ const Map<String, Map<String, String>> operationStrings = {
     'ru': 'Записать',
     'en': 'Save',
   },
-  'opSaved': {
-    'ru': 'Записано',
-    'en': 'Saved',
-  },
-  'opChanged': {
-    'ru': 'Изменено',
-    'en': 'Updated',
-  },
   'opSaveWord': {
     'ru': 'Сохранить',
     'en': 'Save',

@@ -200,22 +200,6 @@ const Map<String, Map<String, String>> coreStrings = {
     'en': 'New record from %s',
   },
   // ── отмена и прочее ──
-  'storeRestored': {
-    'ru': 'Восстановлено из копии',
-    'en': 'Restored from a copy',
-  },
-  'storeSavedMany': {
-    'ru': 'Записано: %s',
-    'en': 'Saved: %s',
-  },
-  'storeDeletedMany': {
-    'ru': 'Удалено: %s',
-    'en': 'Deleted: %s',
-  },
-  'storeMovedMany': {
-    'ru': 'Изменено: %s',
-    'en': 'Changed: %s',
-  },
   'settleNote': {
     'ru': 'Рассчитались',
     'en': 'Settled up',
@@ -223,17 +207,5 @@ const Map<String, Map<String, String>> coreStrings = {
   'settleDone': {
     'ru': 'Долг закрыт',
     'en': 'Debt cleared',
-  },
-  'storeShared': {
-    'ru': 'Разделено',
-    'en': 'Shared',
-  },
-  'storeMoved': {
-    'ru': 'Перенесено',
-    'en': 'Moved',
-  },
-  'storeDisbanded': {
-    'ru': 'Пара распущена',
-    'en': 'The pair is broken up',
   },
 };

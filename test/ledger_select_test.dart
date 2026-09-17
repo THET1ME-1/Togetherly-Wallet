@@ -132,11 +132,8 @@ void main() {
     await tester.tap(find.text(tr('bulkDelete')).last);
     await tester.pumpAndSettle();
 
+    // Обе выбранные ушли за одно подтверждение, третья на месте.
     expect([for (final t in store.db.transactions) t.id], ['c']);
-
-    // Одна отмена возвращает обе записи разом.
-    store.undoLast();
-    expect(store.db.transactions, hasLength(3));
   });
 
   testWidgets('сменить категорию пачкой', (tester) async {

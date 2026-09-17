@@ -437,10 +437,6 @@ const Map<String, Map<String, String>> restStrings = {
     'ru': 'Вы',
     'en': 'You',
   },
-  'undoCancel': {
-    'ru': 'Отменить',
-    'en': 'Undo',
-  },
   'inviteQrAlt': {
     'ru': 'Код приглашения в виде QR',
     'en': 'The invite code as a QR',

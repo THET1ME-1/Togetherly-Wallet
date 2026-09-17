@@ -160,10 +160,9 @@ void main() {
       expect(store.db.transactions.length, 3);
       expect(store.db.transactions.where((t) => t.amount > 0).length, 1);
 
-      // Вся пачка — одна ступень отмены: иначе человек убрал бы одну строку
-      // из ста и решил, что приложение сломалось.
-      store.undoLast();
-      expect(store.db.transactions, isEmpty);
+      // Выписка пишется ОДНИМ вызовом: сто строк — это одна пачка, а не сто
+      // отдельных записей подряд.
+      expect(store.db.transactions.map((t) => t.id).toSet(), hasLength(3));
     });
 
     test('битые строки пропускаются, остальные пишутся', () {

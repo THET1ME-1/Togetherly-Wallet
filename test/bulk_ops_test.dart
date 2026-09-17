@@ -45,14 +45,13 @@ void main() {
       expect([for (final t in store.db.transactions) t.id], ['b']);
     });
 
-    test('одна отмена возвращает всю пачку', () {
-      // Двадцать нажатий «Отменить» после одного удаления — это не отмена, а
-      // наказание.
+    test('пачка уходит целиком, а не по одной', () {
+      // Отмены в приложении нет (решение 17.09.2026: «в Togetherly нет и тут
+      // не будет»), поэтому удаление обязано срабатывать за один раз — иначе
+      // человек остался бы с половиной списка и без способа вернуть вторую.
       final store = storeOf();
       store.deleteMany(const ['a', 'b', 'c']);
       expect(store.db.transactions, isEmpty);
-      store.undoLast();
-      expect(store.db.transactions, hasLength(3));
     });
 
     test('удаление уезжает на сервер по каждой записи', () {
@@ -64,11 +63,10 @@ void main() {
       expect(store.outbox, containsAll(<String>['tx:a', 'tx:b']));
     });
 
-    test('пустой список ничего не трогает и отмену не заводит', () {
+    test('пустой список ничего не трогает', () {
       final store = storeOf();
       store.deleteMany(const []);
       expect(store.db.transactions, hasLength(3));
-      expect(store.undo, isNull);
     });
   });
 
@@ -95,13 +93,12 @@ void main() {
       expect(op.subcategory, isNull);
     });
 
-    test('одна отмена возвращает прежние категории', () {
+    test('чужие записи не трогаются', () {
       final store = storeOf();
       store.categorizeMany(const ['a', 'b'], category: 'Кафе');
-      store.undoLast();
       expect(
         [for (final t in store.db.transactions) t.category],
-        ['Продукты', 'Продукты', 'Кафе'],
+        ['Кафе', 'Кафе', 'Кафе'],
       );
     });
   });

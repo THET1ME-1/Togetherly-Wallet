@@ -217,8 +217,7 @@ class _OperationScreenState extends State<OperationScreen> {
       revealAt: _paired && _secret ? _revealAt : null,
       time: _time,
     );
-    final label = widget.edit == null ? tr('opSaved') : tr('opChanged');
-    widget.store.saveOperation(op, label: label);
+    widget.store.saveOperation(op);
     // Самое частое действие в приложении, и до 17.09.2026 оно отвечало
     // человеку одной пропавшей формой. Толчок говорит «легло в ленту» тогда,
     // когда глаза уже ушли с экрана.

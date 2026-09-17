@@ -211,8 +211,6 @@ class Store extends ChangeNotifier {
   bool get ready => _ready;
 
   /// Отмена последнего действия: снимок держится до следующего действия.
-  ({String label, Database before})? _undo;
-  ({String label, Database before})? get undo => _undo;
 
   ThemeChoice _theme = ThemeChoice.system;
   ThemeChoice get theme => _theme;
@@ -469,7 +467,7 @@ class Store extends ChangeNotifier {
           defaultSplit: _db.pair.defaultSplit,
         ),
       ),
-      label: tr('storeDisbanded'),
+      
     );
     markAllForSync();
     _saveSettings();
@@ -645,25 +643,13 @@ class Store extends ChangeNotifier {
     await tmp.rename('${dir.path}/orbita.json');
   }
 
-  void _apply(Database next, {String? label}) {
-    if (label != null) _undo = (label: label, before: _db);
+  void _apply(Database next) {
     _db = next;
     _schedule();
     notifyListeners();
   }
 
-  void undoLast() {
-    final snap = _undo;
-    if (snap == null) return;
-    _undo = null;
-    _apply(snap.before);
-  }
 
-  void forgetUndo() {
-    if (_undo == null) return;
-    _undo = null;
-    notifyListeners();
-  }
 
   void setTheme(ThemeChoice value) {
     _theme = value;
@@ -758,7 +744,7 @@ class Store extends ChangeNotifier {
     final next = Database.fromJson(map);
     if (next.transactions.isEmpty && next.accounts.isEmpty) return 0;
 
-    _apply(next, label: tr('storeRestored'));
+    _apply(next, );
     // Всё помечается к отправке: иначе восстановленное останется на этом
     // телефоне, а с сервера вернётся прежнее.
     markAllForSync();
@@ -771,14 +757,14 @@ class Store extends ChangeNotifier {
   /// Так работает правило видимости: трата принадлежит ровно одной паре, и
   /// видят её только те, кто в этой паре. Ровно то же делает Splitwise —
   /// запись лежит в одной группе, а приватная живёт вне групп.
-  void saveOperationTo(String groupId, Transaction op, {String label = 'Записано'}) {
+  void saveOperationTo(String groupId, Transaction op) {
     if (groupId.isEmpty || groupId == space) {
-      saveOperation(op, label: label);
+      saveOperation(op, );
       return;
     }
     final parked = _parked[groupId];
     if (parked == null) {
-      saveOperation(op, label: label);
+      saveOperation(op, );
       return;
     }
     final list = [...parked.transactions];
@@ -825,7 +811,7 @@ class Store extends ChangeNotifier {
         // Вся доля на том, кому вернули: ровно на неё сальдо и уменьшится.
         shares: {to: 10000},
       ),
-      label: tr('settleDone'),
+      
     );
   }
 
@@ -845,7 +831,7 @@ class Store extends ChangeNotifier {
       id: 'shr-$groupId-${op.id}',
       account: outsideAccountOf(who),
     );
-    saveOperationTo(groupId, copy, label: tr('storeShared'));
+    saveOperationTo(groupId, copy, );
   }
 
   /// Перенести запись в другое пространство: у Splitwise это правка группы
@@ -853,7 +839,7 @@ class Store extends ChangeNotifier {
   void moveOperation(Transaction op, String toGroup) {
     if (toGroup.isEmpty || toGroup == space) return;
     deleteOperation(op.id);
-    saveOperationTo(toGroup, op, label: tr('storeMoved'));
+    saveOperationTo(toGroup, op, );
   }
 
   /// Записать ПАЧКУ операций разом.
@@ -876,11 +862,11 @@ class Store extends ChangeNotifier {
     list.sort((a, b) => b.date.compareTo(a.date));
     _apply(
       _db.copyWith(transactions: list),
-      label: label ?? trf('storeSavedMany', ['${ops.length}']),
+      
     );
   }
 
-  void saveOperation(Transaction op, {String label = 'Записано'}) {
+  void saveOperation(Transaction op) {
     final list = [..._db.transactions];
     final at = list.indexWhere((t) => t.id == op.id);
     if (at >= 0) {
@@ -890,7 +876,7 @@ class Store extends ChangeNotifier {
     }
     list.sort((a, b) => b.date.compareTo(a.date));
     _mark('tx:${op.id}');
-    _apply(_db.copyWith(transactions: list), label: label);
+    _apply(_db.copyWith(transactions: list), );
   }
 
   /// Удалить пачку записей одним действием.
@@ -910,7 +896,7 @@ class Store extends ChangeNotifier {
         transactions:
             _db.transactions.where((t) => !gone.contains(t.id)).toList(),
       ),
-      label: trf('storeDeletedMany', ['${gone.length}']),
+      
     );
   }
 
@@ -942,7 +928,7 @@ class Store extends ChangeNotifier {
     }
     _apply(
       _db.copyWith(transactions: list),
-      label: trf('storeMovedMany', ['${chosen.length}']),
+      
     );
   }
 
@@ -964,7 +950,7 @@ class Store extends ChangeNotifier {
     }
     _apply(
       _db.copyWith(transactions: list),
-      label: trf('storeMovedMany', ['${chosen.length}']),
+      
     );
   }
 
@@ -972,7 +958,7 @@ class Store extends ChangeNotifier {
     _mark('tx:$id');
     _apply(
       _db.copyWith(transactions: _db.transactions.where((t) => t.id != id).toList()),
-      label: 'Удалено',
+      
     );
   }
 
@@ -1033,7 +1019,7 @@ class Store extends ChangeNotifier {
     for (final t in ops.where((t) => t.account == next.name)) {
       _mark('tx:${t.id}');
     }
-    _apply(_db.copyWith(accounts: accounts, transactions: ops), label: 'Изменено');
+    _apply(_db.copyWith(accounts: accounts, transactions: ops), );
   }
 
   /// Пара приезжает с сервера: приглашением или входом человека из Togetherly.
@@ -1097,7 +1083,7 @@ class Store extends ChangeNotifier {
       list.add(a);
     }
     _mark('agr:${a.id}');
-    _apply(_db.copyWith(agreements: list), label: 'Договорённость');
+    _apply(_db.copyWith(agreements: list), );
   }
 
   /// Бюджет в паре ставится ДОГОВОРЁННОСТЬЮ: один предлагает, второй
@@ -1144,7 +1130,7 @@ class Store extends ChangeNotifier {
     final list = [..._db.agreements]..removeWhere((x) => x.id == id);
     if (list.length == _db.agreements.length) return;
     _mark('agr:$id');
-    _apply(_db.copyWith(agreements: list), label: 'Договорённость убрана');
+    _apply(_db.copyWith(agreements: list), );
   }
 
   /// Принятый бюджет становится настоящим: договорённость это решение, а не
@@ -1180,7 +1166,7 @@ class Store extends ChangeNotifier {
     final at = list.indexWhere((x) => x.id == a.id);
     if (at >= 0) list[at] = accepted;
     _mark('agr:${a.id}');
-    _apply(_db.copyWith(agreements: list, budgets: budgets), label: 'Договорились');
+    _apply(_db.copyWith(agreements: list, budgets: budgets), );
   }
 
   /// Цель заведена или поправлена. Имя — ключ: по нему живёт и счёт цели,
@@ -1194,7 +1180,7 @@ class Store extends ChangeNotifier {
       list.add(goal);
     }
     _mark('goal:${goal.name}');
-    _apply(_db.copyWith(goals: list), label: 'Цель сохранена');
+    _apply(_db.copyWith(goals: list), );
   }
 
   /// Цель убрана, а накопленное остаётся на своём счёте: деньги не исчезают
@@ -1204,7 +1190,7 @@ class Store extends ChangeNotifier {
     _mark('goal:$name');
     _apply(
       _db.copyWith(goals: _db.goals.where((g) => g.name != name).toList()),
-      label: 'Цель убрана',
+      
     );
   }
 
@@ -1259,7 +1245,7 @@ class Store extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
     _mark('tx:${out.id}');
     _mark('tx:${into.id}');
-    _apply(_db.copyWith(transactions: list), label: 'Вклад в цель');
+    _apply(_db.copyWith(transactions: list), );
   }
 
   /// Платёж по долгу — такой же перевод, как вклад в цель: деньги уходят с
@@ -1310,7 +1296,7 @@ class Store extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
     _mark('tx:${out.id}');
     _mark('tx:${into.id}');
-    _apply(_db.copyWith(transactions: list), label: 'Платёж по долгу');
+    _apply(_db.copyWith(transactions: list), );
   }
 
   /// Округление покупки в копилку: разницу до кратного забирает цель.
@@ -1376,7 +1362,7 @@ class Store extends ChangeNotifier {
               payer: who.isEmpty ? null : who,
               split: income ? SplitMode.none : _db.pair.defaultSplit,
             ),
-            label: 'Регулярное',
+            
           );
       }
       saveRecurring(afterRun(r, on: on));
@@ -1432,7 +1418,7 @@ class Store extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
     _mark('tx:${out.id}');
     _mark('tx:${into.id}');
-    _apply(_db.copyWith(transactions: list), label: 'Снято из цели');
+    _apply(_db.copyWith(transactions: list), );
   }
 
   /// Перевод между СВОИМИ счетами: две записи, ушло и пришло.
@@ -1501,7 +1487,7 @@ class Store extends ChangeNotifier {
       ..sort((a, b) => b.date.compareTo(a.date));
     _mark('tx:${out.id}');
     _mark('tx:${into.id}');
-    _apply(_db.copyWith(transactions: list), label: 'Перевод');
+    _apply(_db.copyWith(transactions: list), );
   }
 
   /// Ключ бюджета в очереди: пара «категория, подкатегория» — она же
@@ -1718,7 +1704,7 @@ class Store extends ChangeNotifier {
         payer: who,
         split: income ? SplitMode.none : (split ?? _db.pair.defaultSplit),
       ),
-      label: 'Из уведомления',
+      
     );
 
     _noticeAccounts[noticeKey(notice.package, notice.last4)] = account;
@@ -1867,7 +1853,7 @@ class Store extends ChangeNotifier {
         // Курс базовой валюты к себе самой не хранится: он всегда единица.
         rates: {..._db.rates}..remove(next),
       ),
-      label: 'Валюта',
+      
     );
   }
 
@@ -1882,7 +1868,7 @@ class Store extends ChangeNotifier {
       rates[key] = value;
     }
     _mark('settings:base');
-    _apply(_db.copyWith(rates: rates), label: 'Курс');
+    _apply(_db.copyWith(rates: rates), );
   }
 
   /// Откуда пришли курсы и когда. Человек должен видеть, что считает не
@@ -1978,7 +1964,7 @@ class Store extends ChangeNotifier {
       _mark('cat:$from');
       _apply(
         _db.copyWith(categories: list, transactions: ops),
-        label: 'Подкатегория',
+        
       );
       return;
     }
@@ -1989,7 +1975,7 @@ class Store extends ChangeNotifier {
       list.add(next.copyWith(parent: parent));
     }
     _mark('cat:${next.name}');
-    _apply(_db.copyWith(categories: list), label: 'Подкатегория');
+    _apply(_db.copyWith(categories: list), );
   }
 
   /// Убрать подкатегорию. Операции при этом остаются в своей категории — они
@@ -2009,14 +1995,14 @@ class Store extends ChangeNotifier {
     _mark('cat:$name');
     _apply(
       _db.copyWith(categories: list, transactions: ops),
-      label: 'Подкатегория убрана',
+      
     );
   }
 
   /// Правила пары: распределение дохода, округление, пересмотр, общий кошелёк.
   void setRules(Rules next) {
     _mark('settings:base');
-    _apply(_db.copyWith(rules: next), label: 'Правила');
+    _apply(_db.copyWith(rules: next), );
   }
 
   /// Долг заведён или поправлен. Имя — ключ, по нему живёт и счёт долга.
@@ -2029,7 +2015,7 @@ class Store extends ChangeNotifier {
       list.add(debt);
     }
     _mark('debt:${debt.name}');
-    _apply(_db.copyWith(debts: list), label: 'Долг сохранён');
+    _apply(_db.copyWith(debts: list), );
   }
 
   /// Долг убран, а платежи по нему остаются: деньги ушли, и стирать их
@@ -2038,7 +2024,7 @@ class Store extends ChangeNotifier {
     _mark('debt:$name');
     _apply(
       _db.copyWith(debts: _db.debts.where((d) => d.name != name).toList()),
-      label: 'Долг убран',
+      
     );
   }
 
@@ -2055,7 +2041,7 @@ class Store extends ChangeNotifier {
       list.add(item);
     }
     _mark('plan:${item.key}');
-    _apply(_db.copyWith(plan: list), label: 'План');
+    _apply(_db.copyWith(plan: list), );
   }
 
   /// Весь план месяца одной правкой: так его раскладывают по правилу
@@ -2069,7 +2055,7 @@ class Store extends ChangeNotifier {
     }
     _apply(
       _db.copyWith(plan: [...rest, ...items.where((x) => x.amount.abs() >= 0.005)]),
-      label: 'План на месяц',
+      
     );
   }
 
@@ -2080,7 +2066,7 @@ class Store extends ChangeNotifier {
     if (at < 0) return;
     list[at] = list[at].copyWith(bucket: bucket);
     _mark('cat:$name');
-    _apply(_db.copyWith(categories: list), label: 'Разметка');
+    _apply(_db.copyWith(categories: list), );
   }
 
   /// Регулярная запись: платёж, доход, взнос в цель или платёж по долгу.
@@ -2093,14 +2079,14 @@ class Store extends ChangeNotifier {
       list.add(item);
     }
     _mark('rec:${item.id}');
-    _apply(_db.copyWith(recurring: list), label: 'Регулярное');
+    _apply(_db.copyWith(recurring: list), );
   }
 
   void deleteRecurring(String id) {
     _mark('rec:$id');
     _apply(
       _db.copyWith(recurring: _db.recurring.where((r) => r.id != id).toList()),
-      label: 'Регулярное убрано',
+      
     );
   }
 
@@ -2131,7 +2117,7 @@ class Store extends ChangeNotifier {
           defaultSplit: mode,
         ),
       ),
-      label: 'Правило дележа',
+      
     );
   }
 
@@ -2148,14 +2134,14 @@ class Store extends ChangeNotifier {
     }
     list.sort((a, b) => a.created.compareTo(b.created));
     _mark('cm:${c.id}');
-    _apply(_db.copyWith(comments: list), label: null);
+    _apply(_db.copyWith(comments: list), );
   }
 
   void deleteComment(String id) {
     _mark('cm:$id');
     _apply(
       _db.copyWith(comments: _db.comments.where((c) => c.id != id).toList()),
-      label: null,
+      
     );
   }
 
@@ -2206,7 +2192,7 @@ class Store extends ChangeNotifier {
         _mark(key);
       }
     }
-    _apply(_db.copyWith(budgets: list), label: 'Бюджеты изменены');
+    _apply(_db.copyWith(budgets: list), );
   }
 
   /// Стартовый набор уже клали. Флаг переживает перезапуск: человек, стерший
@@ -2257,7 +2243,7 @@ class Store extends ChangeNotifier {
     for (final gone in was.where((n) => list.every((c) => c.name != n))) {
       _mark('cat:$gone');
     }
-    _apply(_db.copyWith(categories: list), label: 'Категории изменены');
+    _apply(_db.copyWith(categories: list), );
   }
 
   /// Переименование категории правит поле во всех операциях: категория
@@ -2284,7 +2270,7 @@ class Store extends ChangeNotifier {
         .toList();
     _apply(
       _db.copyWith(categories: categories, transactions: ops, budgets: budgets),
-      label: 'Переименовано',
+      
     );
   }
 
@@ -2630,7 +2616,7 @@ class Store extends ChangeNotifier {
         agreements: agreements,
         pair: pair,
       ),
-      label: null,
+      
     );
     _saveSettings();
   }
@@ -2689,7 +2675,7 @@ class Store extends ChangeNotifier {
     _syncMark = 0;
     _outbox.clear();
     _saveSettings();
-    _apply(const Database(), label: 'Стёрто');
+    _apply(const Database(), );
   }
 
   String exportJson() => const JsonEncoder.withIndent('  ').convert({

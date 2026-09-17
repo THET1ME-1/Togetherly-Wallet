@@ -111,7 +111,6 @@ bool runAgent(Store store, AgentAction a) {
               ? store.db.pair.defaultSplit
               : SplitMode.none,
         ),
-        label: tr('agentDone'),
       );
       return true;
 
@@ -172,7 +171,6 @@ bool runAgent(Store store, AgentAction a) {
           date: args(a, 'date'),
           note: args(a, 'note'),
         ),
-        label: tr('agentDone'),
       );
       return true;
 

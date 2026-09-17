@@ -47,7 +47,6 @@ import 'screens/settings.dart';
 import 'screens/notices_review_screen.dart';
 import 'screens/stats_screen.dart';
 import 'widgets/import_ask.dart';
-import 'widgets/undo_bar.dart';
 import 'design/myna.dart';
 import 'design/myna_solid.dart';
 
@@ -629,17 +628,7 @@ class _ShellState extends State<Shell> {
     };
 
     return Scaffold(
-      body: Stack(
-        children: [
-          screen,
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 8,
-            child: UndoBar(store: store),
-          ),
-        ],
-      ),
+      body: screen,
       floatingActionButton: FloatingActionButton(
         onPressed: _edit,
         tooltip: tr('navAdd'),
