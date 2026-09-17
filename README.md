@@ -1,5 +1,9 @@
 # Togetherly Wallet
 
+[![Проверки](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/ci.yml)
+[![Сборки](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/build.yml/badge.svg)](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/build.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-black.svg)](LICENSE)
+
 [Русская версия](README.ru.md)
 
 A money tracker built for two people. Two phones, one shared history, and a rule
@@ -75,7 +79,7 @@ it. Everything else runs on a clean clone.
 | Folder | What lives there |
 |---|---|
 | `lib/data` | Models and the store: a JSON file, an outbox, delta merge |
-| `lib/logic` | Pure calculations — splits, envelopes, goals, debts, parsing |
+| `lib/logic` | Pure calculations: splits, envelopes, goals, debts, parsing |
 | `lib/screens` | Screens |
 | `lib/widgets` | Shared parts: forms, sheets, cards, the design kit |
 | `lib/l10n` | Dictionaries, one file per section, one column per language |
@@ -92,7 +96,7 @@ The backend is not part of this repository. The app talks to
 
 No shadows anywhere: depth comes from fill and a one-pixel border. Pure white
 and pure black, zero colour temperature. Colour lives on money and on labels,
-never on buttons. Dialogs in the centre of the screen do not exist — everything
+never on buttons. Dialogs in the centre of the screen do not exist. Everything
 asks from the bottom sheet, because a button in the corner of a centred dialog
 sits half a screen away from your thumb.
 
@@ -101,7 +105,7 @@ on a shadow, and on a field label the theme would never show.
 
 ## Licence
 
-GPL-3.0. Fork it, change it, ship it — and keep the source open.
+GPL-3.0. Fork it, change it, ship it, and keep the source open.
 
 The app icon and the Togetherly brand are not covered by the licence: they
 belong to the project, and a fork needs its own name and its own icon.

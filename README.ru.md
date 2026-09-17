@@ -1,5 +1,9 @@
 # Togetherly Wallet
 
+[![Проверки](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/ci.yml)
+[![Сборки](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/build.yml/badge.svg)](https://github.com/THET1ME-1/Togetherly-Wallet/actions/workflows/build.yml)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-black.svg)](LICENSE)
+
 [In English](README.md)
 
 Трекер денег для двоих. Два телефона, одна общая история и правило, которое
