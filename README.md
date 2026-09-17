@@ -74,6 +74,25 @@ flutter test                # 819 checks
 Screenshot tests need `sample-data.json` with real data and are skipped without
 it. Everything else runs on a clean clone.
 
+## Releases
+
+Tag a version and GitHub Actions does the rest:
+
+```bash
+git tag v0.6.1 && git push --tags
+```
+
+The workflow runs the tests, builds one APK per ABI and attaches them to a
+GitHub Release. Add four repository secrets (`KEYSTORE_BASE64`,
+`KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) and the APKs come out signed;
+without them the files are named `-unsigned`, because an APK on a debug key
+cannot be installed over a real one.
+
+For iOS there is a separate workflow that builds an IPA and uploads it to
+TestFlight. It needs an Apple certificate, a provisioning profile and an App
+Store Connect API key in secrets; the names are listed at the top of
+`.github/workflows/testflight.yml`.
+
 ## How it is put together
 
 | Folder | What lives there |
