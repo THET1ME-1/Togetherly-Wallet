@@ -77,7 +77,8 @@ jobs:
         run: |
           flutter build apk --release --split-per-abi \
             --dart-define=STORE=github \
-            --dart-define=TESSERA_KEY=${{ secrets.TESSERA_KEY }}
+            --dart-define=TESSERA_KEY=${{ secrets.TESSERA_KEY }} \
+            --dart-define=BUGSINK_DSN=${{ secrets.BUGSINK_DSN }}
 
       - name: Имена файлов
         id: names

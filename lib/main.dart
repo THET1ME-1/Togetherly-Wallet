@@ -9,13 +9,21 @@ import 'services/notices.dart';
 import 'services/plus.dart';
 import 'services/push.dart';
 import 'services/analytics.dart';
+import 'services/crash.dart';
 import 'services/session.dart';
 import 'services/live.dart';
 import 'services/lock.dart';
 import 'services/snapshots.dart';
 import 'services/sync.dart';
 
-Future<void> main() async {
+Future<void> main() async => Crash.run(_start);
+
+/// Всё, что делает приложение до первого кадра.
+///
+/// Вынесено из `main`, чтобы сбор падений накрыл и запуск: ошибка при чтении
+/// базы или учётки — самая обидная, человек видит белый экран и не знает, что
+/// сказать в поддержку.
+Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
   final store = Store();
   final account = Session();
@@ -48,6 +56,9 @@ Future<void> main() async {
   // Аналитика заводится ПОСЛЕ чтения учётки: до неё неизвестно, кто открыл
   // приложение, и событие «запуск» ушло бы безымянным.
   unawaited(Analytics.instance.init(account, installId: store.installId));
+  // В списке падений человек — это признак «те же грабли у того же», без
+  // имени и почты.
+  unawaited(Crash.follow(account.uid));
   Analytics.instance.funnel(account.signedIn ? 'open' : 'open_guest');
 
   final sync = Sync(session: account, store: store);
