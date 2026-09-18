@@ -13,6 +13,7 @@ import '../widgets/member_badge.dart';
 import '../widgets/reveal.dart';
 import '../widgets/settings_kit.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/analytics.dart';
 
 /// Витрина Wallet+.
 ///
@@ -176,6 +177,7 @@ class _PlusScreenState extends State<PlusScreen> {
   /// в браузере, а вернувшись, приложение сверяет талон с сервером. Сборки
   /// магазинов ждут своего биллинга и честно говорят об этом.
   Future<void> _buy() async {
+    Analytics.instance.money('plus_buy_tap', params: {'plan': _plan.name});
     if (storeHasBilling) {
       final buy = widget.onBuy;
       if (buy == null) {

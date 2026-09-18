@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import 'app.dart';
@@ -7,6 +8,7 @@ import 'services/locale.dart';
 import 'services/notices.dart';
 import 'services/plus.dart';
 import 'services/push.dart';
+import 'services/analytics.dart';
 import 'services/session.dart';
 import 'services/live.dart';
 import 'services/lock.dart';
@@ -43,6 +45,11 @@ Future<void> main() async {
   void followPlus() => store.setPlusActive(plus.active);
   plus.addListener(followPlus);
   followPlus();
+  // Аналитика заводится ПОСЛЕ чтения учётки: до неё неизвестно, кто открыл
+  // приложение, и событие «запуск» ушло бы безымянным.
+  unawaited(Analytics.instance.init(account, installId: store.installId));
+  Analytics.instance.funnel(account.signedIn ? 'open' : 'open_guest');
+
   final sync = Sync(session: account, store: store);
   final notices = Notices(store);
   final push = Push();

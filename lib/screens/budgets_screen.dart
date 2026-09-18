@@ -19,6 +19,7 @@ import '../widgets/money_text.dart';
 import '../widgets/reveal.dart';
 import '../design/myna.dart';
 import '../design/myna_search.dart';
+import '../services/analytics.dart';
 
 /// Бюджеты: сколько потрачено из лимита за текущий месяц. Считается по тем же
 /// правилам, что и категории на других экранах, — иначе одна и та же трата
@@ -219,9 +220,11 @@ class BudgetsScreen extends StatelessWidget {
     );
     if (draft == null) return;
     if (pair) {
+      Analytics.instance.action('budget_proposed');
       store.proposeBudget(draft.budget, note: draft.note);
       return;
     }
+    Analytics.instance.action(current == null ? 'budget_added' : 'budget_edited');
     final next = draft.budget;
     final list = [...store.db.budgets];
     final at = list.indexWhere(

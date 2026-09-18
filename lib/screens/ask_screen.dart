@@ -22,6 +22,7 @@ import '../widgets/plus_gate.dart';
 import '../services/plus.dart';
 import '../logic/plus.dart';
 import '../ui/theme/tm_scheme.dart';
+import '../services/analytics.dart';
 
 /// Разговор о деньгах двумя контурами.
 ///
@@ -241,6 +242,11 @@ class _AskScreenState extends State<AskScreen> {
   }
 
   Future<void> _send([String? preset]) async {
+    Analytics.instance.action('ask', params: {
+      'attached': _shots.length,
+      'preset': preset != null,
+      'shared': _shared,
+    });
     final question = (preset ?? _input.text).trim();
     final shots = [..._shots];
     // Одного снимка чека хватает как сообщения: слов человек может и не

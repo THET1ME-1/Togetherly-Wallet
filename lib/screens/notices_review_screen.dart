@@ -16,6 +16,7 @@ import '../widgets/money_text.dart';
 import '../widgets/sender_logo.dart';
 import '../design/myna.dart';
 import '../ui/theme/tm_scheme.dart';
+import '../services/analytics.dart';
 
 /// Разбор списаний: что банк прислал, а приложение прочитало.
 ///
@@ -299,6 +300,12 @@ class _NoticeCardState extends State<_NoticeCard> {
     // Очередь списаний проходят подряд, глядя на суммы, а не на кнопки:
     // палец должен знать, что карточка принята.
     Tap.done();
+    // Сколько трат приложение записывает за человека — главная мера пользы
+    // разбора уведомлений.
+    Analytics.instance.action('notice_accepted', params: {
+      'has_category': _category != null,
+      'confident': widget.notice.confidence >= 0.7,
+    });
     widget.store.acceptNotice(
       widget.notice,
       account: _account!,

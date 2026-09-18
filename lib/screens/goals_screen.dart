@@ -23,6 +23,7 @@ import '../widgets/goal_vessel.dart';
 import '../widgets/money_text.dart';
 import '../widgets/reveal.dart';
 import '../design/myna.dart';
+import '../services/analytics.dart';
 
 /// Цели с вкладами каждого.
 ///
@@ -163,7 +164,11 @@ class GoalsScreen extends StatelessWidget {
               if (p != null) _delete(context, p);
             },
     );
-    if (next != null) store.saveGoal(next);
+    if (next != null) {
+      Analytics.instance.action(current == null ? 'goal_added' : 'goal_edited',
+          params: {'reserve': next.isReserve});
+      store.saveGoal(next);
+    }
   }
 
   Future<void> _delete(BuildContext context, GoalProgress p) async {

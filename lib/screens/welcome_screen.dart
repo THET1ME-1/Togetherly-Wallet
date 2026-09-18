@@ -7,6 +7,7 @@ import '../data/models.dart';
 import '../design/app_theme.dart';
 import '../design/myna.dart';
 import '../l10n/strings.dart';
+import '../services/analytics.dart';
 import '../services/oauth.dart';
 import '../services/session.dart';
 import '../ui/theme/tm_scheme.dart';
@@ -119,8 +120,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     try {
       if (_step == _Step.register) {
         await widget.account.register(_email.text, _password.text, _name.text);
+        Analytics.instance.funnel('signup');
       } else {
         await widget.account.signIn(_email.text, _password.text);
+        Analytics.instance.funnel('signin');
       }
     } on SessionError catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -138,6 +141,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     });
     try {
       await widget.account.signInWith(provider);
+      Analytics.instance.funnel('signin_oauth');
+      Analytics.instance.action('oauth', params: {'who': provider.name});
     } on OAuthCancelled {
       // Человек закрыл окно провайдера — это не ошибка.
     } on SessionError catch (e) {

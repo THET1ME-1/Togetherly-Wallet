@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:yandex_mobileads/mobile_ads.dart';
 
 import 'plus.dart';
+import 'analytics.dart';
 
 /// Где стоит баннер. Место важно не только для приличия, но и для отчёта: у
 /// каждого свой блок, и видно, что окупается.
@@ -103,7 +104,10 @@ class Ads extends ChangeNotifier {
       final done = Completer<void>();
       ad.setAdEventListener(
         eventListener: RewardedAdEventListener(
-          onRewarded: (_) => earned = true,
+          onRewarded: (_) {
+            earned = true;
+            Analytics.instance.ad('rewarded_done');
+          },
           onAdDismissed: () {
             if (!done.isCompleted) done.complete();
           },

@@ -71,7 +71,13 @@ jobs:
           echo "signed=true" >> "$GITHUB_OUTPUT"
 
       - name: Сборка
-        run: flutter build apk --release --split-per-abi --dart-define=STORE=github
+        # Ключ аналитики приходит секретом: в исходниках его нет, и форк
+        # ничего никуда не шлёт. Без ключа сборка тоже проходит — аналитика
+        # просто молчит.
+        run: |
+          flutter build apk --release --split-per-abi \
+            --dart-define=STORE=github \
+            --dart-define=TESSERA_KEY=${{ secrets.TESSERA_KEY }}
 
       - name: Имена файлов
         id: names

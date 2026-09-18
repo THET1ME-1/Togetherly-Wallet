@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' hide Category;
@@ -527,6 +528,7 @@ class Store extends ChangeNotifier {
         _syncMark = (j['syncMark'] as num?)?.toInt() ?? 0;
         _amoled = j['amoled'] == true;
         _categoriesSeeded = j['categoriesSeeded'] == true;
+        _installId = '${j['installId'] ?? ''}';
         _pairChoice = j['pairChoice'] as String? ?? '';
         _viewAll = j['viewAll'] == true;
         final queues = (j['parkedOutbox'] as Map?) ?? const {};
@@ -689,6 +691,7 @@ class Store extends ChangeNotifier {
       'seenNotices': _seenNotices.toList().reversed.take(200).toList(),
       'noticeHintDone': _noticeHintDone,
       'categoriesSeeded': _categoriesSeeded,
+      'installId': _installId,
       if (_sourceChoice != null) 'noticeSource': _sourceChoice!.name,
       if (_pairChoice.isNotEmpty) 'pairChoice': _pairChoice,
       'viewAll': _viewAll,
@@ -2198,6 +2201,27 @@ class Store extends ChangeNotifier {
   /// Стартовый набор уже клали. Флаг переживает перезапуск: человек, стерший
   /// категории нарочно, не должен получать их обратно каждое утро.
   bool _categoriesSeeded = false;
+
+  /// Номер этого устройства для статистики. Не связан ни с аккаунтом, ни с
+  /// телефоном: случайные шестнадцать знаков, заведённые при первом запуске.
+  ///
+  /// Нужен потому, что Wallet работает и БЕЗ аккаунта — человек ведёт деньги
+  /// один, никуда не входя. Без такого номера он не попадал бы в счёт людей
+  /// вовсе, и «сколько у Wallet пользователей» отвечало бы только про
+  /// вошедших.
+  String get installId {
+    if (_installId.isEmpty) {
+      final rnd = Random();
+      _installId = List.generate(
+        16,
+        (_) => '0123456789abcdef'[rnd.nextInt(16)],
+      ).join();
+      _saveSettings();
+    }
+    return _installId;
+  }
+
+  String _installId = '';
   bool get categoriesSeeded => _categoriesSeeded;
 
   /// Чистое место: ни категорий, ни операций. Только сюда кладётся набор сам,

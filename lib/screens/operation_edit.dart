@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../data/store.dart';
 import '../l10n/strings.dart';
+import '../services/analytics.dart';
 import '../design/accents.dart';
 import '../design/app_theme.dart';
 import '../ui/theme/tm_tokens.dart';
@@ -217,7 +218,16 @@ class _OperationScreenState extends State<OperationScreen> {
       revealAt: _paired && _secret ? _revealAt : null,
       time: _time,
     );
+    final first = widget.store.db.transactions.length <= 1;
     widget.store.saveOperation(op);
+    Analytics.instance.action('op_saved', params: {
+      'kind': op.kind.name,
+      'edit': widget.edit != null,
+      'split': op.split.name,
+    });
+    // Первая запись — та ступень, на которой видно, дошёл ли человек от
+    // установки до работающего трекера.
+    if (first) Analytics.instance.funnel('first_op');
     // Самое частое действие в приложении, и до 17.09.2026 оно отвечало
     // человеку одной пропавшей формой. Толчок говорит «легло в ленту» тогда,
     // когда глаза уже ушли с экрана.

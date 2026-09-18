@@ -8,6 +8,7 @@ import 'data/store.dart';
 import 'services/notices.dart';
 import 'logic/backup.dart';
 import 'services/rates.dart';
+import 'services/analytics.dart';
 import 'services/session.dart';
 import 'services/live.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -315,6 +316,9 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       widget.lock.leave();
+      // Накопленное уезжает при сворачивании: телефон может не открыться до
+      // завтра, а статистика за вчера нужна сегодня.
+      unawaited(Analytics.instance.flush());
     }
     if (state == AppLifecycleState.resumed) {
       widget.lock.comeBack();
@@ -343,6 +347,9 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
         return MaterialApp(
           title: 'Togetherly Wallet',
           debugShowCheckedModeBanner: false,
+          // Экраны считаются сами, по именованным маршрутам: вписывать вызов
+          // в каждый экран — верный способ забыть половину.
+          navigatorObservers: [Analytics.instance.observer],
           // Язык: выбор человека или язык телефона. Системные окна (календарь,
           // меню копирования) берут его отсюда.
           locale: widget.locale.locale,

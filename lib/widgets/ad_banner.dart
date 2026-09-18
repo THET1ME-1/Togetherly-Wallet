@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:yandex_mobileads/mobile_ads.dart';
 
 import '../services/ads.dart';
+import '../services/analytics.dart';
 
 /// Баннер РСЯ строкой между блоками.
 ///
@@ -82,6 +83,9 @@ class _AdBannerState extends State<AdBanner> {
     ad.loadStateStream.listen((state) {
       if (!mounted) return;
       setState(() => _loaded = state is BannerAdLoadStateLoaded);
+      if (state is BannerAdLoadStateLoaded) {
+        Analytics.instance.ad(widget.spot.name);
+      }
     });
     try {
       await ad.load(AdRequest(adUnitId: widget.ads.unitFor(widget.spot)));
