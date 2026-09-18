@@ -1,0 +1,20 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- Сборка для Google Play.
+         Запасная доставка уведомлений (живой сокет в foreground-сервисе) нужна
+         там, где нет сервисов Google: кастомные прошивки, RuStore, сборка с
+         GitHub. У телефона, который ставит приложение из Play, сервисы есть
+         всегда, и пуши идут через FCM.
+         Разрешение FOREGROUND_SERVICE_DATA_SYNC при этом требует отдельной
+         анкеты и видео в консоли Play — объяснять то, чем сборка не
+         пользуется, незачем. Убираем и разрешение, и саму службу. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+        tools:node="remove"/>
+    <application>
+        <service
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
+            tools:node="remove"/>
+    </application>
+</manifest>

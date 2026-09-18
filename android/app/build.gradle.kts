@@ -56,6 +56,20 @@ android {
         versionName = flutter.versionName
     }
 
+    // Сборки различаются ровно одним: в Play нет запасной доставки
+    // уведомлений, а значит и разрешения FOREGROUND_SERVICE_DATA_SYNC, за
+    // которое консоль требует анкету и видео. Остальное общее.
+    flavorDimensions += "store"
+    productFlavors {
+        create("play") {
+            dimension = "store"
+        }
+        create("full") {
+            dimension = "store"
+            isDefault = true
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (keyPropsFile.exists()) {

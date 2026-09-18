@@ -142,8 +142,14 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
   }
 
   /// Фоновый сокет следует за парой и за вердиктом о пушах.
+  ///
+  /// В сборке для Play его нет вовсе: там у каждого телефона есть сервисы
+  /// Google, пуши доходят через FCM, а разрешение
+  /// `FOREGROUND_SERVICE_DATA_SYNC` Google требует объяснять отдельной анкетой
+  /// и видео. Запасной путь живёт в сборках RuStore и GitHub — там прошивки
+  /// без Google обычное дело (18.09.2026).
   Future<void> _followDelivery() async {
-    if (!account.signedIn || !widget.push.needsLocal) {
+    if (kStore == 'play' || !account.signedIn || !widget.push.needsLocal) {
       await PushBg.stop();
       return;
     }
