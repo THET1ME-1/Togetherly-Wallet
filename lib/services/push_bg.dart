@@ -133,9 +133,9 @@ class _PushTask extends TaskHandler {
     final channel = PairChannel(
       authToken: token,
       groupId: group,
-      onMoneyChanged: (by) {
-        // Своё изменение — эхо собственной записи, а не новость.
-        if (by.isEmpty || by == _uid) return;
+      onMoneyChanged: (event) {
+        // Своё изменение, курсы и повторная выгрузка — не новость.
+        if (!isPartnerNews(event, _uid)) return;
         _local.partnerWrote(name: _name);
       },
     );

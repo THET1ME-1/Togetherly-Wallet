@@ -8,6 +8,18 @@ import 'package:http/http.dart' as http;
 import 'session.dart';
 import 'sync.dart';
 
+/// Звать ли человека уведомлением «Новая запись».
+///
+/// Только если партнёр записал НОВУЮ операцию: сервер кладёт в событие флаг
+/// `news`. Раньше уведомление поднималось на любое событие канала — курсы,
+/// настройки, выгрузку при входе, — и человек искал запись, которой нет
+/// (жалоба 19.09.2026). Своё событие — эхо собственной записи.
+bool isPartnerNews(Object? data, String me) {
+  if (data is! Map || data['event'] != 'money_changed') return false;
+  final by = '${data['by'] ?? ''}';
+  return data['news'] == true && by.isNotEmpty && by != me;
+}
+
 /// Подписка на канал пары в чистом виде: только токен сессии и номер группы.
 ///
 /// Отдельно от [Live] потому, что тем же кодом слушает фоновый изолят
@@ -25,9 +37,9 @@ class PairChannel {
   final String authToken;
   final String groupId;
 
-  /// Кто-то изменил деньги пары. Приходит uid автора: своё изменение не
-  /// событие, а эхо собственной записи.
-  final void Function(String byUid) onMoneyChanged;
+  /// Кто-то изменил деньги пары. Приходит событие целиком: кто автор и есть
+  /// ли среди записанного новая операция — решает [isPartnerNews].
+  final void Function(Map<dynamic, dynamic> event) onMoneyChanged;
 
   final String apiBase;
   final String ws;
@@ -71,7 +83,7 @@ class PairChannel {
         // Нас касается только событие денег: чат и рисование ходят тем же
         // каналом пары, и будить синхронизацию на каждый штрих незачем.
         if (data is Map && data['event'] == 'money_changed') {
-          onMoneyChanged('${data['by'] ?? ''}');
+          onMoneyChanged(data);
         }
       });
       sub.error.listen((e) => debugPrint('живой канал: отказ подписки $e'));
@@ -192,10 +204,8 @@ class Live {
         // Нас касается только событие денег: чат и рисование ходят тем же
         // каналом пары, и будить синхронизацию на каждый штрих незачем.
         if (data is Map && data['event'] == 'money_changed') {
-          if (data['by'] != session.uid) {
-            sync.run();
-            onPartnerWrote?.call();
-          }
+          if (data['by'] != session.uid) sync.run();
+          if (isPartnerNews(data, session.uid)) onPartnerWrote?.call();
         }
       });
       sub.error.listen((e) => debugPrint('живой канал: отказ подписки $e'));

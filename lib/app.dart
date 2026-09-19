@@ -316,16 +316,7 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
     } catch (_) {
       // Пара подтянется следующим кругом: без неё приложение работает.
     }
-    // Человек мог месяц писать без аккаунта. Молча уносить его записи в
-    // облако нельзя, а молча не уносить — он решит, что всё потерял.
-    // Поэтому спрашиваем один раз, и до ответа круг идёт без них.
-    if (store.syncMark == 0) store.forgetSpareCash();
-    if (store.db.transactions.isNotEmpty && store.syncMark == 0) {
-      store.pendingLocal = store.db.transactions.length;
-      store.notify();
-    } else {
-      store.markAllForSync();
-    }
+    store.adoptLocalRecords();
     await widget.sync.run();
     _seedIfFresh();
     _followPair();
