@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import '../data/models.dart';
+import '../logic/pair_since.dart';
 import 'auth_failure.dart';
 import 'oauth.dart';
 
@@ -370,15 +371,17 @@ class Session extends ChangeNotifier {
       baseCurrency: 'MDL',
       members: members,
       // Дата начала различает две пары с одним человеком: старую группу в
-      // Togetherly часто просто бросают, не распуская.
-      since: _dayOf(g['start_date'] ?? g['created']),
+      // Togetherly часто просто бросают, не распуская. Считается правилом
+      // Togetherly, а не днём коннекта: иначе приложения показывали паре
+      // разные даты (19.09.2026).
+      since: pairSince(
+        timer: systemTimerDay(g['timers']),
+        connect: dayOf(g['start_date']).isEmpty
+            ? dayOf(g['created'])
+            : dayOf(g['start_date']),
+        anniversary: dayOf(g['anniversary_date']),
+      ),
     );
-  }
-
-  /// Первые десять знаков даты: «2026-05-31T20:40:51Z» → «2026-05-31».
-  static String _dayOf(Object? raw) {
-    final text = '${raw ?? ''}'.trim();
-    return text.length >= 10 ? text.substring(0, 10) : '';
   }
 
   static bool _looksLikePlaceholder(String name) {
