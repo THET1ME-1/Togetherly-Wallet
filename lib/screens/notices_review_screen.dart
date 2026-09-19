@@ -13,6 +13,7 @@ import '../logic/notice_match.dart';
 import '../logic/notice_parse.dart';
 import '../services/notices.dart';
 import '../widgets/money_text.dart';
+import '../widgets/motion.dart';
 import '../widgets/sender_logo.dart';
 import '../design/myna.dart';
 import '../ui/theme/tm_scheme.dart';
@@ -23,11 +24,73 @@ import '../services/analytics.dart';
 /// Отдельный экран, а не раздел настроек: здесь человек РАБОТАЕТ — смотрит
 /// сумму, правит счёт, подтверждает. Настройки чтения живут своей жизнью и
 /// открываются раз в полгода.
-class NoticesReviewScreen extends StatelessWidget {
+class NoticesReviewScreen extends StatefulWidget {
   const NoticesReviewScreen({super.key, required this.store, this.notices});
 
   final Store store;
   final Notices? notices;
+
+  @override
+  State<NoticesReviewScreen> createState() => _NoticesReviewScreenState();
+}
+
+/// Разобранная карточка уходит в свою сторону — «Записать» вправо,
+/// «Отклонить» влево — и очередь смыкается. Раньше карточка пропадала за
+/// кадр, и при разборе подряд было не понять, что стало с предыдущей.
+///
+/// У карточек ключ по отпечатку уведомления. Без ключа следующая карточка
+/// получала состояние ушедшей: выбранный там счёт и категорию.
+class _NoticesReviewScreenState extends State<NoticesReviewScreen> {
+  Store get store => widget.store;
+
+  List<ParsedNotice> _prev = const [];
+  final Map<String, ParsedNotice> _ghosts = {};
+  final Map<String, String?> _after = {};
+
+  /// Куда уезжает карточка: 1 — записана, -1 — отклонена.
+  final Map<String, int> _exit = {};
+
+  /// Смахнутые жестом: Dismissible уже увёл их сам, второй раз не провожаем.
+  final Set<String> _swiped = {};
+
+  List<ParsedNotice> _track(List<ParsedNotice> pending) {
+    final prev = _prev;
+    _prev = pending;
+    final now = {for (final n in pending) n.fingerprint};
+    for (var i = 0; i < prev.length; i++) {
+      final gone = prev[i];
+      final fp = gone.fingerprint;
+      if (now.contains(fp) || _ghosts.containsKey(fp)) continue;
+      if (_swiped.remove(fp)) continue;
+      String? after;
+      for (var j = i - 1; j >= 0; j--) {
+        if (now.contains(prev[j].fingerprint)) {
+          after = prev[j].fingerprint;
+          break;
+        }
+      }
+      _ghosts[fp] = gone;
+      _after[fp] = after;
+    }
+    _ghosts.removeWhere((fp, _) => now.contains(fp));
+    if (_ghosts.isEmpty) return pending;
+    final merged = [...pending];
+    for (final g in _ghosts.values) {
+      final after = _after[g.fingerprint];
+      final at = after == null ? -1 : merged.indexWhere((n) => n.fingerprint == after);
+      merged.insert(at + 1, g);
+    }
+    return merged;
+  }
+
+  void _gone(String fp) {
+    if (!mounted) return;
+    setState(() {
+      _ghosts.remove(fp);
+      _after.remove(fp);
+      _exit.remove(fp);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,46 +98,67 @@ class NoticesReviewScreen extends StatelessWidget {
       listenable: store,
       builder: (context, _) {
         final pending = store.pendingNotices;
+        final shown = _track(pending);
+        final still = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
         return Scaffold(
           appBar: AppBar(
             title: Text(tr('reviewTitle')),
             actions: [
               if (pending.length > 1)
                 TextButton(
-                  onPressed: () => _dismissAll(context),
+                  onPressed: _dismissAll,
                   child: Text(tr('reviewClearAll')),
                 ),
               const SizedBox(width: 4),
             ],
           ),
-          body: pending.isEmpty
-              ? const _Empty()
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 40),
-                  children: [
-                    for (final notice in pending)
-                      _NoticeCard(
-                        store: store,
-                        notice: notice,
-                        logo: notices?.logos[notice.package],
-                      ),
-                  ],
-                ),
+          // Последняя карточка ушла — «всё разобрано» проявляется, а не
+          // подменяет пустоту за кадр.
+          body: AnimatedSwitcher(
+            duration: still ? Duration.zero : Motion.state,
+            switchInCurve: Motion.enter,
+            child: shown.isEmpty
+                ? const _Empty(key: ValueKey('empty'))
+                : ListView(
+                    key: const ValueKey('list'),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 40),
+                    children: [
+                      for (final notice in shown)
+                        Leaving(
+                          key: ValueKey(notice.fingerprint),
+                          leaving: _ghosts.containsKey(notice.fingerprint),
+                          slide: _exit[notice.fingerprint] ?? 0,
+                          onDone: () => _gone(notice.fingerprint),
+                          child: _NoticeCard(
+                            key: ValueKey('card-${notice.fingerprint}'),
+                            store: store,
+                            notice: notice,
+                            logo: widget.notices?.logos[notice.package],
+                            onExit: (slide, swiped) {
+                              _exit[notice.fingerprint] = slide;
+                              if (swiped) _swiped.add(notice.fingerprint);
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
         );
       },
     );
   }
 
-  void _dismissAll(BuildContext context) {
+  void _dismissAll() {
     Tap.warn();
     for (final notice in store.pendingNotices) {
+      _exit[notice.fingerprint] = -1;
       store.dismissNotice(notice);
     }
   }
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty();
+  const _Empty({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -105,14 +189,20 @@ class _Empty extends StatelessWidget {
 /// и трата записана.
 class _NoticeCard extends StatefulWidget {
   const _NoticeCard({
+    super.key,
     required this.store,
     required this.notice,
+    required this.onExit,
     this.logo,
   });
 
   final Store store;
   final ParsedNotice notice;
   final Uint8List? logo;
+
+  /// Карточку разобрали: куда ей уезжать (1 — записана, -1 — отклонена) и
+  /// увёл ли её уже жест.
+  final void Function(int slide, bool swiped) onExit;
 
   @override
   State<_NoticeCard> createState() => _NoticeCardState();
@@ -159,8 +249,33 @@ class _NoticeCardState extends State<_NoticeCard> {
           account: _account,
         );
 
+    // Смахнуть — тот же выбор, что кнопки: вправо записать, влево
+    // отклонить. Вправо без счёта не пускаем: записывать некуда.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Dismissible(
+        key: ValueKey('swipe-${notice.fingerprint}'),
+        direction: DismissDirection.horizontal,
+        confirmDismiss: (dir) async {
+          if (dir == DismissDirection.startToEnd && _account == null) {
+            Tap.warn();
+            return false;
+          }
+          return true;
+        },
+        onDismissed: (dir) => dir == DismissDirection.startToEnd
+            ? _accept(swiped: true)
+            : _dismiss(swiped: true),
+        background: _SwipeHint(accept: true),
+        secondaryBackground: _SwipeHint(accept: false),
+        child: _body(context, scheme, notice, income, at, signed, unsure, twin),
+      ),
+    );
+  }
+
+  Widget _body(BuildContext context, ColorScheme scheme, ParsedNotice notice,
+      bool income, DateTime at, double signed, bool unsure, bool twin) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHigh,
@@ -282,12 +397,7 @@ class _NoticeCardState extends State<_NoticeCard> {
           const SizedBox(width: 10),
           Expanded(
             child: OutlinedButton(
-              onPressed: () {
-                // Отказ отвечает отчётливее подтверждения: списание уходит
-                // насовсем, и спутать эти две кнопки на ощупь нельзя.
-                Tap.warn();
-                widget.store.dismissNotice(notice);
-              },
+              onPressed: _dismiss,
               child: Text(tr('reviewDismiss')),
             ),
           ),
@@ -296,10 +406,19 @@ class _NoticeCardState extends State<_NoticeCard> {
     );
   }
 
-  void _accept() {
+  void _dismiss({bool swiped = false}) {
+    // Отказ отвечает отчётливее подтверждения: списание уходит насовсем, и
+    // спутать эти две кнопки на ощупь нельзя.
+    Tap.warn();
+    widget.onExit(-1, swiped);
+    widget.store.dismissNotice(widget.notice);
+  }
+
+  void _accept({bool swiped = false}) {
     // Очередь списаний проходят подряд, глядя на суммы, а не на кнопки:
     // палец должен знать, что карточка принята.
     Tap.done();
+    widget.onExit(1, swiped);
     // Сколько трат приложение записывает за человека — главная мера пользы
     // разбора уведомлений.
     Analytics.instance.action('notice_accepted', params: {
@@ -447,3 +566,40 @@ Future<String?> _choose(
 }
 
 
+
+/// Подложка под смахиваемой карточкой: что случится, если отпустить палец.
+/// Цвет на неё не заходит — по правилу системы цвет живёт на деньгах.
+class _SwipeHint extends StatelessWidget {
+  const _SwipeHint({required this.accept});
+
+  final bool accept;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      alignment: accept ? Alignment.centerLeft : Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(accept ? Myna.check : Myna.x, size: 22, color: scheme.onSurface),
+          const SizedBox(width: 8),
+          Text(
+            accept ? tr('reviewSave') : tr('reviewDismiss'),
+            style: TextStyle(
+              fontFamily: AppTheme.bodyFont,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -47,6 +47,9 @@ import 'screens/operation_edit.dart';
 import 'screens/settings.dart';
 import 'screens/notices_review_screen.dart';
 import 'screens/stats_screen.dart';
+import 'screens/pair_screen.dart';
+import 'services/invite_links.dart';
+import 'widgets/motion.dart';
 import 'widgets/import_ask.dart';
 import 'design/myna.dart';
 import 'design/myna_solid.dart';
@@ -110,8 +113,9 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
     _onAccountChanged();
     // Круг синхронизации на старте и на каждом возврате из фона: партнёр мог
     // записать трату, пока приложение лежало свёрнутым.
+    widget.sync.addListener(_afterRound);
     widget.sync.run().then((_) {
-      if (mounted) _seedCategoriesIfFresh();
+      if (mounted) _seedIfFresh();
     });
     _runRecurring();
     // Уведомления, пришедшие пока приложение было закрыто, ждут в файле
@@ -229,6 +233,7 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
   void dispose() {
     account.removeListener(_onAccountChanged);
     store.removeListener(_followPair);
+    widget.sync.removeListener(_afterRound);
     widget.notices.stop();
     widget.live.stop();
     WidgetsBinding.instance.removeObserver(this);
@@ -258,10 +263,24 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
   /// До этой правки новый человек видел пустоту вместо категорий — список
   /// собирался из операций, а операций у него нет («всё пусто», 13.09.2026).
   /// Класть набор ДО синхронизации нельзя: он уехал бы дублем к партнёру,
-  /// у которого категории уже есть.
-  void _seedCategoriesIfFresh() {
-    if (store.categoriesSeeded || !store.categoriesUntouched) return;
-    store.seedCategories();
+  /// у которого категории уже есть. Тем же путём заводятся «Наличные».
+  void _seedIfFresh() {
+    if (!store.categoriesSeeded && store.categoriesUntouched) {
+      store.seedCategories();
+    }
+    store.seedCash();
+  }
+
+  /// Каждый удачный круг синхронизации проверяет «Наличные» открытого
+  /// хранилища: новая пара приезжает кругом, а не входом, и без этой проверки
+  /// в ней не было бы ни одного счёта.
+  DateTime? _roundSeen;
+
+  void _afterRound() {
+    final ok = widget.sync.lastOk;
+    if (widget.sync.busy || ok == null || ok == _roundSeen) return;
+    _roundSeen = ok;
+    store.seedCash();
   }
 
   void _onAccountChanged() {
@@ -300,6 +319,7 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
     // Человек мог месяц писать без аккаунта. Молча уносить его записи в
     // облако нельзя, а молча не уносить — он решит, что всё потерял.
     // Поэтому спрашиваем один раз, и до ответа круг идёт без них.
+    if (store.syncMark == 0) store.forgetSpareCash();
     if (store.db.transactions.isNotEmpty && store.syncMark == 0) {
       store.pendingLocal = store.db.transactions.length;
       store.notify();
@@ -307,7 +327,7 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
       store.markAllForSync();
     }
     await widget.sync.run();
-    _seedCategoriesIfFresh();
+    _seedIfFresh();
     _followPair();
     // Токен устройства уезжает после входа: до него сервер не знал, кому
     // слать, и первый вечер пара оставалась без уведомлений.
@@ -490,12 +510,33 @@ class _ShellState extends State<Shell> {
   @override
   void initState() {
     super.initState();
+    // Ссылка-приглашение: код ждёт в InviteLinks, пока оболочка не построена,
+    // и открывает экран «Позвать партнёра» с кодом партнёра в поле.
+    InviteLinks.pending.addListener(_openInvite);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openInvite());
     // SDK рекламы поднимается на старте: первый баннер иначе ждёт
     // инициализации и появляется рывком посреди чтения.
     ads?.init();
     // Магазин слушаем с запуска: покупка приходит и тогда, когда человек
     // оплатил её вчера, а приложение закрыл.
     if (storeHasBilling) billing?.listen();
+  }
+
+  @override
+  void dispose() {
+    InviteLinks.pending.removeListener(_openInvite);
+    super.dispose();
+  }
+
+  void _openInvite() {
+    final session = widget.session;
+    if (!mounted || session == null || InviteLinks.pending.value == null) return;
+    final code = InviteLinks.consume();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          PairScreen(session: session, store: widget.store, initialCode: code),
+      settings: const RouteSettings(name: '/pair'),
+    ));
   }
 
   bool _askedAboutLocal = false;
@@ -640,8 +681,13 @@ class _ShellState extends State<Shell> {
         ),
     };
 
+    // Смена вкладки и смена пары — один переход «сквозь»: прежний экран
+    // быстро гаснет, новый проявляется с лёгким подъёмом. Раньше экран
+    // подменялся за кадр, и после выбора другой пары в шапке было не понять,
+    // что вообще сменилось.
+    final space = store.viewAll ? 'all' : store.db.pair.groupId;
     return Scaffold(
-      body: screen,
+      body: FadeThrough(id: '$_page|$space', child: screen),
       floatingActionButton: FloatingActionButton(
         onPressed: _edit,
         tooltip: tr('navAdd'),

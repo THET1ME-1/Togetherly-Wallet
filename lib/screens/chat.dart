@@ -10,6 +10,7 @@ import '../logic/query.dart';
 import '../widgets/money_text.dart';
 import 'ledger.dart';
 import '../design/myna.dart';
+import '../widgets/motion.dart';
 
 /// Реплика разговора.
 class Line {
@@ -33,6 +34,9 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _lines = <Line>[];
+
+  /// Новая реплика выплывает снизу, а не появляется за кадр.
+  final _seen = <Object>{};
   final _field = TextEditingController();
   final _scroll = ScrollController();
 
@@ -135,10 +139,16 @@ class _ChatScreenState extends State<ChatScreen> {
                     controller: _scroll,
                     padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
                     itemCount: _lines.length,
-                    itemBuilder: (context, i) => _Pair(
-                      line: _lines[i],
-                      store: widget.store,
-                      onEdit: widget.onEdit,
+                    itemBuilder: (context, i) => Entry(
+                      key: ObjectKey(_lines[i]),
+                      group: _seen,
+                      id: _lines[i],
+                      grow: true,
+                      child: _Pair(
+                        line: _lines[i],
+                        store: widget.store,
+                        onEdit: widget.onEdit,
+                      ),
                     ),
                   ),
           ),

@@ -20,6 +20,7 @@ import '../widgets/member_badge.dart';
 import '../widgets/comments_sheet.dart';
 import '../widgets/money_text.dart';
 import '../widgets/period_bar.dart';
+import '../widgets/motion.dart';
 import '../widgets/reveal.dart';
 import 'category_pick_screen.dart';
 import '../widgets/settings_kit.dart';
@@ -66,6 +67,21 @@ class _LedgerScreenState extends State<LedgerScreen> {
       TextEditingController(text: widget.filter.search);
   final _shown = <Object>{};
 
+  /// Строки прошлого кадра и то, чем они отобраны. По ним видно, какая трата
+  /// пропала из данных (удалили, перенесли в другую пару) и какая появилась.
+  List<Transaction> _prevRows = const [];
+  Object? _prevScope;
+
+  /// Удалённые, которые ещё доигрывают уход на своём прежнем месте, и сосед,
+  /// после которого каждая стояла. Без этого строка исчезала за кадр, а
+  /// соседи прыгали вверх.
+  final Map<String, Transaction> _ghosts = {};
+  final Map<String, String?> _ghostAfter = {};
+
+  /// Появившиеся в этом кадре: они раздвигают список, а не проявляются.
+  Set<String> _arrived = const {};
+  bool _firstFrame = true;
+
   /// Порядок в ленте живёт на экране, а не в отборе: это способ смотреть, а не
   /// условие, и в счётчик отбора он попадать не должен.
   LedgerSort _sort = LedgerSort.dateDesc;
@@ -92,6 +108,58 @@ class _LedgerScreenState extends State<LedgerScreen> {
   }
 
   void _clearPick() => setState(_picked.clear);
+
+  /// Сверка с прошлым кадром: кто пропал из данных — призрак на прежнем
+  /// месте, кто появился — раздвигает список. Смена отрезка, отбора, порядка
+  /// или пары — это другой список, а не правка: призраков и раздвиганий нет.
+  List<Transaction> _track(List<Transaction> rows, Object scope) {
+    final same = identical(scope, _prevScope) || scope == _prevScope;
+    final prev = _prevRows;
+    _prevScope = scope;
+    _prevRows = rows;
+    if (!same || _firstFrame) {
+      _ghosts.clear();
+      _ghostAfter.clear();
+      _arrived = const {};
+      return rows;
+    }
+    final now = {for (final r in rows) r.id};
+    final before = {for (final r in prev) r.id};
+    _arrived = {for (final id in now) if (!before.contains(id)) id};
+
+    final alive = {for (final t in widget.store.view.transactions) t.id};
+    for (var i = 0; i < prev.length; i++) {
+      final gone = prev[i];
+      if (now.contains(gone.id) || alive.contains(gone.id) || _ghosts.containsKey(gone.id)) continue;
+      String? after;
+      for (var j = i - 1; j >= 0; j--) {
+        if (now.contains(prev[j].id)) {
+          after = prev[j].id;
+          break;
+        }
+      }
+      _ghosts[gone.id] = gone;
+      _ghostAfter[gone.id] = after;
+    }
+    _ghosts.removeWhere((id, _) => now.contains(id));
+    if (_ghosts.isEmpty) return rows;
+
+    final merged = [...rows];
+    for (final g in _ghosts.values) {
+      final after = _ghostAfter[g.id];
+      final at = after == null ? -1 : merged.indexWhere((r) => r.id == after);
+      merged.insert(at + 1, g);
+    }
+    return merged;
+  }
+
+  void _ghostGone(String id) {
+    if (!mounted) return;
+    setState(() {
+      _ghosts.remove(id);
+      _ghostAfter.remove(id);
+    });
+  }
 
   @override
   void didUpdateWidget(LedgerScreen old) {
@@ -262,9 +330,30 @@ class _LedgerScreenState extends State<LedgerScreen> {
     final scheme = Theme.of(context).colorScheme;
     final db = widget.store.view;
     final base = db.baseCurrency;
-    final rows = visible(db, widget.period, filter: widget.filter, sort: _sort);
+    final picked = visible(db, widget.period, filter: widget.filter, sort: _sort);
+    final rows = _track(picked, (
+      widget.store.viewAll,
+      widget.store.db.pair.groupId,
+      widget.period,
+      widget.filter,
+      _sort,
+    ));
+    if (_firstFrame) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _firstFrame = false);
+    }
     final byDay = ledgerSortByDay(_sort);
-    final groups = byDay ? groupByDay(db, rows) : const <DayGroup>[];
+    // Итог дня считается без уходящих строк: удалённая трата ещё доигрывает
+    // уход, но в деньгах её уже нет — иначе итог дня расходился с потоком.
+    final real = {
+      if (byDay && _ghosts.isNotEmpty)
+        for (final g in groupByDay(db, picked)) g.date: g.total,
+    };
+    final groups = !byDay
+        ? const <DayGroup>[]
+        : [
+            for (final g in groupByDay(db, rows))
+              _ghosts.isEmpty ? g : DayGroup(g.date, g.rows, real[g.date] ?? 0),
+          ];
     final flow = cashflow(db, widget.period, filter: widget.filter);
 
     return CustomScrollView(
@@ -463,6 +552,9 @@ class _LedgerScreenState extends State<LedgerScreen> {
                         onToggle: _toggle,
                         onLongPress: _startPick,
                         logos: widget.notices?.logos ?? const {},
+                        ghosts: _ghosts.keys.toSet(),
+                        arrived: _arrived,
+                        onGhostGone: _ghostGone,
                       );
                       // Мягко выходят ТОЛЬКО первые дни. Дальше задержки
                       // превратили бы долистывание в череду вспышек: у
@@ -481,16 +573,24 @@ class _LedgerScreenState extends State<LedgerScreen> {
                 // поломкой.
                 : SliverList.builder(
                     itemCount: rows.length,
-                    itemBuilder: (context, i) => OperationRow(
-                      store: widget.store,
+                    itemBuilder: (context, i) => rowMotion(
                       op: rows[i],
-                      onTap: () => _selecting
-                          ? _toggle(rows[i])
-                          : widget.onEdit(rows[i]),
-                      onLongPress: () => _startPick(rows[i]),
-                      selecting: _selecting,
-                      selected: _picked.contains(rows[i].id),
-                      logos: widget.notices?.logos ?? const {},
+                      index: i,
+                      shown: _shown,
+                      ghosts: _ghosts.keys.toSet(),
+                      arrived: _arrived,
+                      onGhostGone: _ghostGone,
+                      child: OperationRow(
+                        store: widget.store,
+                        op: rows[i],
+                        onTap: () => _selecting
+                            ? _toggle(rows[i])
+                            : widget.onEdit(rows[i]),
+                        onLongPress: () => _startPick(rows[i]),
+                        selecting: _selecting,
+                        selected: _picked.contains(rows[i].id),
+                        logos: widget.notices?.logos ?? const {},
+                      ),
                     ),
                   ),
           ),
@@ -570,6 +670,11 @@ class _DayBlock extends StatelessWidget {
   final ValueChanged<Transaction> onToggle;
   final ValueChanged<Transaction> onLongPress;
 
+  /// Удалённые, доигрывающие уход, и появившиеся в этом кадре.
+  final Set<String> ghosts;
+  final Set<String> arrived;
+  final ValueChanged<String> onGhostGone;
+
   const _DayBlock({
     required this.group,
     required this.store,
@@ -580,10 +685,30 @@ class _DayBlock extends StatelessWidget {
     required this.onToggle,
     required this.onLongPress,
     this.logos = const {},
+    this.ghosts = const {},
+    this.arrived = const {},
+    required this.onGhostGone,
   });
 
   @override
   Widget build(BuildContext context) {
+    // В дне остались одни уходящие строки — уходит весь день вместе с
+    // заголовком. Иначе строка доигрывала уход, а заголовок пропадал за кадр.
+    final allGone = group.rows.isNotEmpty && group.rows.every((r) => ghosts.contains(r.id));
+    final day = _day(context, rowsMove: !allGone);
+    if (!allGone) return day;
+    return Collapse(
+      key: ValueKey('gone-day-${group.date}'),
+      onDone: () {
+        for (final r in group.rows) {
+          onGhostGone(r.id);
+        }
+      },
+      child: day,
+    );
+  }
+
+  Widget _day(BuildContext context, {required bool rowsMove}) {
     final scheme = Theme.of(context).colorScheme;
     final caption = dayCaption(group.date);
     return Column(
@@ -648,10 +773,14 @@ class _DayBlock extends StatelessWidget {
           ),
         ),
         for (var i = 0; i < group.rows.length; i++)
-          Reveal(
-            group: shown,
-            id: group.rows[i].id,
-            delay: Duration(milliseconds: 16 * (i < 8 ? i : 8)),
+          rowMotion(
+            op: group.rows[i],
+            index: i,
+            shown: shown,
+            // Весь день уходит одним куском — строки внутри не уходят сами.
+            ghosts: rowsMove ? ghosts : const {},
+            arrived: arrived,
+            onGhostGone: onGhostGone,
             child: OperationRow(
               store: store,
               op: group.rows[i],
@@ -1090,4 +1219,35 @@ class _AccountMark extends StatelessWidget {
     }
     return Icon(accountIcon(account), size: 13, color: scheme.onSurfaceVariant);
   }
+}
+
+/// Строка ленты в движении: удалённая схлопывается на своём месте, новая
+/// раздвигает соседей, остальные при первом показе проявляются каскадом.
+/// Ключ по номеру операции обязателен: без него при вставке в середину
+/// анимации доставались соседним строкам.
+Widget rowMotion({
+  required Transaction op,
+  required int index,
+  required Set<Object> shown,
+  required Set<String> ghosts,
+  required Set<String> arrived,
+  required ValueChanged<String> onGhostGone,
+  required Widget child,
+}) {
+  if (ghosts.contains(op.id)) {
+    return Collapse(
+      key: ValueKey('gone-${op.id}'),
+      onDone: () => onGhostGone(op.id),
+      child: child,
+    );
+  }
+  final grow = arrived.contains(op.id);
+  return Entry(
+    key: ValueKey(op.id),
+    group: shown,
+    id: op.id,
+    grow: grow,
+    delay: grow ? Duration.zero : Duration(milliseconds: 16 * (index < 8 ? index : 8)),
+    child: child,
+  );
 }

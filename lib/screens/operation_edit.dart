@@ -173,7 +173,10 @@ class _OperationScreenState extends State<OperationScreen> {
     // счетов `_save` молча выходил, человек жал «Записать» и ничего не
     // происходило (замечено 13.09.2026). Теперь счёт действительно заводится.
     if (db.accounts.isEmpty && _account == null) {
-      widget.store.editAccount(tr('accountDefaultName'));
+      widget.store.editAccount(
+        tr('accountDefaultName'),
+        kind: AccountKind.cash,
+      );
       db = widget.store.db;
       _account = tr('accountDefaultName');
     }
@@ -718,28 +721,47 @@ class _OperationScreenState extends State<OperationScreen> {
                           FittedBox(
                             fit: BoxFit.scaleDown,
                             alignment: Alignment.centerLeft,
-                            child: Text(
-                              // Пока идёт счёт, видно само выражение;
-                              // закончили — сумма со знаком направления.
-                              _calc.hasExpression
-                                  ? '${_currencyNow(db)} ${_calc.display}'
-                                  : formatMoney(
-                                      _kind == TxKind.income
-                                          ? _amount
-                                          : -_amount,
-                                      _currencyNow(db),
-                                    ),
-                              maxLines: 1,
-                              softWrap: false,
-                              style: TextStyle(
-                                fontFamily: AppTheme.displayFont,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 34,
-                                letterSpacing: -1.2,
-                                color: _amount == 0
+                            child: Builder(
+                              builder: (context) {
+                                final ink = _amount == 0
                                     ? scheme.onSurfaceVariant
-                                    : tint,
-                              ),
+                                    : tint;
+                                final entry = _calc.entry;
+                                // Пока идёт счёт, видно само выражение;
+                                // без него — сумма со знаком направления.
+                                // Ненабранные копейки бледнее: видно, что
+                                // точка ещё не нажата.
+                                final sign = !_calc.hasExpression &&
+                                        _amount != 0 &&
+                                        _kind != TxKind.income
+                                    ? '−'
+                                    : '';
+                                return Text.rich(
+                                  TextSpan(
+                                    text: '${_currencyNow(db)}\u00A0'
+                                        '$sign${_calc.lead}${entry.typed}',
+                                    children: [
+                                      TextSpan(
+                                        text: entry.ghost,
+                                        style: TextStyle(
+                                          color: ink.withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      if (_calc.trail.isNotEmpty)
+                                        TextSpan(text: _calc.trail),
+                                    ],
+                                  ),
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.displayFont,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 34,
+                                    letterSpacing: -1.2,
+                                    color: ink,
+                                  ),
+                                );
+                              },
                             ),
                           ),
                           const SizedBox(height: 5),
@@ -783,30 +805,35 @@ class _OperationScreenState extends State<OperationScreen> {
                 const SizedBox(height: 10),
                 // Сводка записи: четыре строки, и каждая — вход в свой выбор.
                 // Человек видит, что получится, ещё до нажатия «Записать».
-                if (accounts.isEmpty)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          trf('opAccountNew', [tr('accountDefaultName')]),
-                          style: TextStyle(
-                            fontFamily: AppTheme.bodyFont,
-                            fontSize: 14,
-                            height: 1.35,
-                            color: scheme.onSurfaceVariant,
-                          ),
+                //
+                // Без счёта вид ТОТ ЖЕ: строка счёта обещает «Наличные», и
+                // запись их заведёт. Раньше на этом месте стояла подсказка с
+                // кнопкой, а дата и ряд пары пропадали — экран выглядел
+                // сломанным (19.09.2026).
+                _SummaryRow(
+                  icon: _kind == TxKind.transfer
+                      ? Myna.arrowRight
+                      : accountIcon(
+                          _account ??
+                              accounts.firstOrNull?.name ??
+                              tr('accountDefaultName'),
+                          stored: db.accounts
+                              .where((a) => a.name == _account)
+                              .firstOrNull
+                              ?.icon,
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton(
-                        onPressed: _newAccount,
-                        child: Text(tr('opAccountMake')),
-                      ),
-                    ],
-                  ),
-                // Категория доступна и БЕЗ счёта: первая запись заводит счёт
-                // сама, и выбирать категорию человек вправе до этого.
-                if (accounts.isEmpty && _kind != TxKind.transfer) ...[
+                  title: _kind == TxKind.transfer
+                      ? '${_account ?? accounts.firstOrNull?.name ?? tr('accountDefaultName')} → ${_to ?? tr('opMovePick')}'
+                      : (_account ??
+                            accounts.firstOrNull?.name ??
+                            tr('accountDefaultName')),
+                  note: accounts.isEmpty
+                      ? tr('opAccountNew')
+                      : _walletNote(db, accounts),
+                  open: _panel == _OpPanel.wallets,
+                  onTap: () => setState(() => _panel = _OpPanel.wallets),
+                ),
+                if (_kind != TxKind.transfer) ...[
                   const SizedBox(height: 6),
                   _SummaryRow(
                     icon: categoryIcon(_sub ?? _category ?? ''),
@@ -819,106 +846,74 @@ class _OperationScreenState extends State<OperationScreen> {
                     onTap: () => setState(() => _panel = _OpPanel.cats),
                   ),
                 ],
-                if (accounts.isNotEmpty) ...[
-                  _SummaryRow(
-                    icon: _kind == TxKind.transfer
-                        ? Myna.arrowRight
-                        : accountIcon(
-                            _account ?? accounts.first.name,
-                            stored: db.accounts
-                                .where((a) => a.name == _account)
-                                .firstOrNull
-                                ?.icon,
-                          ),
-                    title: _kind == TxKind.transfer
-                        ? '${_account ?? accounts.first.name} → ${_to ?? tr('opMovePick')}'
-                        : (_account ?? accounts.first.name),
-                    note: _walletNote(db, accounts),
-                    open: _panel == _OpPanel.wallets,
-                    onTap: () => setState(() => _panel = _OpPanel.wallets),
+                const SizedBox(height: 6),
+                // Когда: «Вчера» — одно нажатие стрелкой, а не открытие
+                // барабана. Часы рядом: время задают редко, но задают.
+                _WhenSummary(
+                  label: _whenLabel(),
+                  onStep: _stepDay,
+                  onDate: _pickDate,
+                  onTime: _pickTime,
+                  timeSet: _time != null,
+                ),
+                const SizedBox(height: 6),
+                // Мелочи одной строкой: кто платил, как делим, сюрприз,
+                // заметка и делёж с другой парой. Каждая — своим значком,
+                // включённые подсвечены.
+                _SummaryRow(
+                  icon: _paired && _kind != TxKind.transfer
+                      ? Myna.user
+                      : Myna.pencil,
+                  title: _paired && _kind != TxKind.transfer
+                      ? _payerLabel()
+                      : (_note.text.trim().isEmpty
+                            ? tr('opNoteShort')
+                            : _note.text.trim()),
+                  note: _detailsNote(),
+                  muted: !_paired && _note.text.trim().isEmpty,
+                  onTap: _paired && _kind != TxKind.transfer
+                      ? _pickPayer
+                      : _editNote,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_paired)
+                        _MiniAction(
+                          icon: _note.text.trim().isEmpty
+                              ? Myna.plus
+                              : Myna.pencil,
+                          tooltip: tr('opNoteShort'),
+                          on: _note.text.trim().isNotEmpty,
+                          onTap: _editNote,
+                        ),
+                      if (_paired && _kind != TxKind.transfer)
+                        _MiniAction(
+                          icon: Myna.usersGroup,
+                          tooltip: tr('opSplitTitle'),
+                          on: _split != SplitMode.none,
+                          onTap: _pickSplit,
+                        ),
+                      if (_paired && _kind != TxKind.transfer)
+                        _MiniAction(
+                          icon: Myna.gift,
+                          tooltip: tr('opSecretShort'),
+                          on: _secret,
+                          onTap: _secretTap,
+                        ),
+                      // Делёж с ДРУГОЙ парой: деньги уходят со своего счёта,
+                      // а вторая пара видит расчёт. Без этой кнопки функция
+                      // существовала бы только в памяти проекта.
+                      if (_otherSpaces.isNotEmpty &&
+                          _kind != TxKind.transfer)
+                        _MiniAction(
+                          icon: Myna.userPlus,
+                          tooltip: tr('opShareWith'),
+                          on: _shareWith != null,
+                          onTap: _pickShare,
+                        ),
+                    ],
                   ),
-                  if (_kind != TxKind.transfer) ...[
-                    const SizedBox(height: 6),
-                    _SummaryRow(
-                      icon: categoryIcon(_sub ?? _category ?? ''),
-                      title: _category == null
-                          ? tr('opPickCategory')
-                          : (_sub == null ? _category! : '$_category · $_sub'),
-                      note: _category == null ? tr('opPickCategoryNote') : null,
-                      muted: _category == null,
-                      open: _panel == _OpPanel.cats,
-                      onTap: () => setState(() => _panel = _OpPanel.cats),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  // Когда: «Вчера» — одно нажатие стрелкой, а не открытие
-                  // барабана. Часы рядом: время задают редко, но задают.
-                  _WhenSummary(
-                    label: _whenLabel(),
-                    onStep: _stepDay,
-                    onDate: _pickDate,
-                    onTime: _pickTime,
-                    timeSet: _time != null,
-                  ),
-                  const SizedBox(height: 6),
-                  // Мелочи одной строкой: кто платил, как делим, сюрприз,
-                  // заметка и делёж с другой парой. Каждая — своим значком,
-                  // включённые подсвечены.
-                  _SummaryRow(
-                    icon: _paired && _kind != TxKind.transfer
-                        ? Myna.user
-                        : Myna.pencil,
-                    title: _paired && _kind != TxKind.transfer
-                        ? _payerLabel()
-                        : (_note.text.trim().isEmpty
-                              ? tr('opNoteShort')
-                              : _note.text.trim()),
-                    note: _detailsNote(),
-                    muted: !_paired && _note.text.trim().isEmpty,
-                    onTap: _paired && _kind != TxKind.transfer
-                        ? _pickPayer
-                        : _editNote,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_paired)
-                          _MiniAction(
-                            icon: _note.text.trim().isEmpty
-                                ? Myna.plus
-                                : Myna.pencil,
-                            tooltip: tr('opNoteShort'),
-                            on: _note.text.trim().isNotEmpty,
-                            onTap: _editNote,
-                          ),
-                        if (_paired && _kind != TxKind.transfer)
-                          _MiniAction(
-                            icon: Myna.usersGroup,
-                            tooltip: tr('opSplitTitle'),
-                            on: _split != SplitMode.none,
-                            onTap: _pickSplit,
-                          ),
-                        if (_paired && _kind != TxKind.transfer)
-                          _MiniAction(
-                            icon: Myna.gift,
-                            tooltip: tr('opSecretShort'),
-                            on: _secret,
-                            onTap: _secretTap,
-                          ),
-                        // Делёж с ДРУГОЙ парой: деньги уходят со своего счёта,
-                        // а вторая пара видит расчёт. Без этой кнопки функция
-                        // существовала бы только в памяти проекта.
-                        if (_otherSpaces.isNotEmpty &&
-                            _kind != TxKind.transfer)
-                          _MiniAction(
-                            icon: Myna.userPlus,
-                            tooltip: tr('opShareWith'),
-                            on: _shareWith != null,
-                            onTap: _pickShare,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
                 const SizedBox(height: 8),
               ],
             ),
@@ -930,7 +925,6 @@ class _OperationScreenState extends State<OperationScreen> {
               panel: _panel,
               onPanel: (p) => setState(() => _panel = p),
               showCats: _kind != TxKind.transfer,
-              showWallets: accounts.isNotEmpty,
               keys: _Keypad(onKey: _press),
               cats: _CatsPanel(
                 categories: cats,
@@ -1422,7 +1416,7 @@ class _Keypad extends StatelessWidget {
     ['1', '2', '3', '/'],
     ['4', '5', '6', '*'],
     ['7', '8', '9', '-'],
-    ['00', '0', 'del', '+'],
+    ['.', '0', 'del', '+'],
   ];
 
   @override
@@ -1789,7 +1783,6 @@ class _PanelHost extends StatelessWidget {
     required this.panel,
     required this.onPanel,
     required this.showCats,
-    required this.showWallets,
     required this.keys,
     required this.cats,
     required this.wallets,
@@ -1798,7 +1791,6 @@ class _PanelHost extends StatelessWidget {
   final _OpPanel panel;
   final ValueChanged<_OpPanel> onPanel;
   final bool showCats;
-  final bool showWallets;
   final Widget keys;
   final Widget cats;
   final Widget wallets;
@@ -1809,7 +1801,7 @@ class _PanelHost extends StatelessWidget {
     final tabs = <(_OpPanel, String)>[
       (_OpPanel.keys, tr('opTabKeys')),
       if (showCats) (_OpPanel.cats, tr('opTabCategory')),
-      if (showWallets) (_OpPanel.wallets, tr('opTabWallet')),
+      (_OpPanel.wallets, tr('opTabWallet')),
     ];
     final shown = tabs.any((t) => t.$1 == panel) ? panel : _OpPanel.keys;
 

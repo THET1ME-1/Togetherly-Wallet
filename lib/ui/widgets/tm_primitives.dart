@@ -76,7 +76,11 @@ class TmButton extends StatelessWidget {
     final (bg, fg, side) = switch (variant) {
       TmButtonVariant.shared => (context.tm.accent, context.tm.onAccent, null),
       TmButtonVariant.personal => (context.tm.accent, context.tm.onAccent, null),
-      TmButtonVariant.ink => (tm.dark ? tm.field : TmColors.ink, tm.onDark, null),
+      // В тёмной теме ink — инверсия, белая кнопка с тёмными буквами, как
+      // главные кнопки темы. Прежняя пара «поле + onDark» давала тёмное по
+      // тёмному, а на карточке цвета поля кнопка ещё и сливалась с ней:
+      // «Скопировать» на экране приглашения не было видно (снимок 18.09.2026).
+      TmButtonVariant.ink => (tm.dark ? tm.accent : TmColors.ink, tm.dark ? tm.onAccent : tm.onDark, null),
       TmButtonVariant.outline => (
           const Color(0x00000000),
           tm.text,
@@ -106,12 +110,16 @@ class TmButton extends StatelessWidget {
           height: h,
           padding: EdgeInsets.symmetric(horizontal: padH),
           alignment: Alignment.center,
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TmText.button(onPressed == null ? fg.withValues(alpha: 0.35) : fg)
-                .copyWith(fontSize: fs),
+          // Длинная подпись ужимается, а не режется многоточием: «Скопировать»
+          // в половине ширины на 360 dp превращалось в «Скопиров…».
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TmText.button(onPressed == null ? fg.withValues(alpha: 0.35) : fg)
+                  .copyWith(fontSize: fs),
+            ),
           ),
         ),
       ),

@@ -201,13 +201,11 @@ void main() {
       // Экран поиска тот же, что в настройках: флаг, код и название.
       await tester.tap(find.text('Доллар США'));
       await tester.pumpAndSettle();
-      // Клавиатура набирает копейки: «10,00» это 1-0-0-0.
+      // Клавиатура набирает целые: «10,00» это 1-0.
       await tester.tap(find.text('1'));
       await tester.pump();
-      for (var i = 0; i < 3; i++) {
-        await tester.tap(find.text('0').first);
-        await tester.pump();
-      }
+      await tester.tap(find.text('0').first);
+      await tester.pump();
       await tester.pumpAndSettle();
 
       // Под суммой честно написано, во что это превратится в итогах, и по

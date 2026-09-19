@@ -22,6 +22,7 @@ import '../widgets/member_badge.dart';
 import '../widgets/goal_vessel.dart';
 import '../widgets/money_text.dart';
 import '../widgets/reveal.dart';
+import '../widgets/wallet_sheet.dart';
 import '../design/myna.dart';
 import '../services/analytics.dart';
 
@@ -202,7 +203,7 @@ class GoalsScreen extends StatelessWidget {
           ? wallets.first.name
           : await showMoneySheet<String>(
               context,
-              builder: (context) => _WalletSheet(
+              builder: (context) => WalletSheet(
                 wallets: wallets,
                 title: trf('goalRemoveWhere', [
                   formatMoney(p.saved, p.goal.currency),
@@ -498,77 +499,6 @@ class _Contribution extends StatelessWidget {
 
 /// Заведение и правка цели. Имя — ключ, поэтому у заведённой цели оно не
 /// меняется: вместе с ним пришлось бы переносить счёт и все вклады.
-class _WalletSheet extends StatelessWidget {
-  const _WalletSheet({required this.wallets, required this.title});
-
-  final List<AccountBalance> wallets;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              title,
-              style: TextStyle(
-                fontFamily: AppTheme.displayFont,
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
-                color: scheme.onSurface,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          for (final w in wallets)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: scheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(20),
-                child: InkWell(
-                  onTap: () => Navigator.of(context).pop(w.name),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    child: Row(children: [
-                      LabelDot(
-                        name: w.name,
-                        icon: accountIcon(w.name),
-                        size: 34,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          w.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppTheme.bodyFont,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      MoneyText(w.mainAmount,
-                          currency: w.mainCurrency, size: 13.5, squeeze: true),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-        ]),
-      ),
-    );
-  }
-}
 class _MoveSheet extends StatefulWidget {
   const _MoveSheet({required this.store, required this.progress, required this.back});
 

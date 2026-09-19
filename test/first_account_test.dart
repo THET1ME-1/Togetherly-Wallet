@@ -40,10 +40,8 @@ void main() {
       await tester.pumpWidget(app(OperationScreen(store: store)));
       await tester.pumpAndSettle();
 
-      // Клавиатура набирает КОПЕЙКИ: «5000» это 50,00.
+      // Клавиатура набирает ЦЕЛЫЕ: «50» это 50,00.
       await tester.tap(find.widgetWithText(InkWell, '5').first);
-      await tester.tap(find.widgetWithText(InkWell, '0').first);
-      await tester.tap(find.widgetWithText(InkWell, '0').first);
       await tester.tap(find.widgetWithText(InkWell, '0').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text(tr('opSave')));

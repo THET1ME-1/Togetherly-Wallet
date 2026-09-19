@@ -15,6 +15,7 @@ import 'services/live.dart';
 import 'services/lock.dart';
 import 'services/snapshots.dart';
 import 'services/sync.dart';
+import 'services/invite_links.dart';
 
 Future<void> main() async => Crash.run(_start);
 
@@ -25,6 +26,9 @@ Future<void> main() async => Crash.run(_start);
 /// сказать в поддержку.
 Future<void> _start() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Ссылка-приглашение может прийти раньше первого кадра: слушаем сразу,
+  // код дождётся оболочки в InviteLinks.pending.
+  unawaited(InviteLinks.start());
   final store = Store();
   final account = Session();
   // База и учётка читаются до первого кадра: иначе экран мигает пустотой и

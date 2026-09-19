@@ -23,6 +23,7 @@ import '../services/plus.dart';
 import '../logic/plus.dart';
 import '../ui/theme/tm_scheme.dart';
 import '../services/analytics.dart';
+import '../widgets/motion.dart';
 
 /// Разговор о деньгах двумя контурами.
 ///
@@ -94,6 +95,10 @@ class _Line {
 class _AskScreenState extends State<AskScreen> {
   final _input = TextEditingController();
   final _messages = <_Line>[];
+
+  /// Реплики, уже стоявшие на экране: память разговора при открытии не
+  /// выплывает заново, выплывает только новая.
+  final _seen = <Object>{};
   final _scroll = ScrollController();
 
   /// Прикреплённое к следующему сообщению: снимки и файлы вперемешку.
@@ -185,6 +190,7 @@ class _AskScreenState extends State<AskScreen> {
             failed: t.failed,
             names: t.files,
           )));
+    _seen.addAll(_messages);
   }
 
   void _switchScope(bool shared) {
@@ -610,11 +616,26 @@ class _AskScreenState extends State<AskScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                   itemCount: _messages.length + (_busy ? 1 : 0),
                   itemBuilder: (context, i) {
-                    if (i == _messages.length) return _Typing(deep: deep);
+                    if (i == _messages.length) {
+                      final id = 'typing-${_messages.length}';
+                      return Entry(
+                        key: ValueKey(id),
+                        group: _seen,
+                        id: id,
+                        grow: true,
+                        child: _Typing(deep: deep),
+                      );
+                    }
                     final m = _messages[i];
-                    return m.mine
-                        ? _Mine(line: m, fill: fill, ink: ink)
-                        : _Reply(line: m, deep: deep, onAnswer: _send);
+                    return Entry(
+                      key: ObjectKey(m),
+                      group: _seen,
+                      id: m,
+                      grow: true,
+                      child: m.mine
+                          ? _Mine(line: m, fill: fill, ink: ink)
+                          : _Reply(line: m, deep: deep, onAnswer: _send),
+                    );
                   },
                 ),
         ),

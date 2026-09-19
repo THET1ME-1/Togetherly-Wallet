@@ -16,11 +16,39 @@ class Invite {
   final Session session;
 
   /// Без I, O, 0 и 1: человек диктует код голосом и переписывает с экрана.
-  static const String _chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  /// Им же бегает «дешифратор» кода на экране приглашения.
+  static const String alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
   static String newCode() {
     final r = Random.secure();
-    return List.generate(6, (_) => _chars[r.nextInt(_chars.length)]).join();
+    return List.generate(6, (_) => alphabet[r.nextInt(alphabet.length)]).join();
+  }
+
+  /// Уже выпущенный свой код, если он годится для того же приглашения.
+  ///
+  /// Экран «Позвать партнёра» при каждом открытии выпускал НОВЫЙ код: у одного
+  /// человека к 18.09.2026 их набралось 423, а ссылка, отправленная партнёру
+  /// вчера, переставала совпадать с тем, что показывает экран. Теперь экран
+  /// сперва берёт свой прежний код, а новый выпускается кнопкой.
+  ///
+  /// Годится код той же привязки: без пары, если зовём в новую, или к той
+  /// паре, где есть свободное место. Код, по которому пара уже собралась,
+  /// сервер привязывает к ней сам — он сюда не попадёт.
+  Future<String?> current({String? groupId}) async {
+    if (!session.signedIn) return null;
+    final filter = 'owner_uid = "${session.uid}" && group_id = "${groupId ?? ''}"';
+    try {
+      final found = await session.get(
+        '/api/collections/invite_codes/records?perPage=1&filter='
+        '${Uri.encodeQueryComponent(filter)}',
+      );
+      final items = (found['items'] as List?) ?? const [];
+      if (items.isEmpty) return null;
+      final code = ((items.first as Map)['code'] ?? '').toString();
+      return code.isEmpty ? null : code;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Выпустить свой код. Прежний сносится ТОЛЬКО после того, как новый лёг на
@@ -101,6 +129,20 @@ class Invite {
   /// Ссылка для партнёра. Ведёт на страницу приглашения: там и кнопка
   /// установки, и сам код — человек без приложения увидит, что это не спам.
   static String linkFor(String code) => '$kApiBase/invite/$code?app=money';
+}
+
+/// К какой паре привязывать код приглашения. null — к новой.
+///
+/// Код, привязанный к паре, приём ведёт В ЭТУ пару. Экран брал открытую пару
+/// всегда, и у человека, чья открытая пара — живая пара из Togetherly, код
+/// звал третьего в полную группу: партнёр получал «Группа заполнена»
+/// (18.09.2026, код EDR3MT). Wallet зовёт второго человека в НОВУЮ пару;
+/// в открытую — только если в ней есть свободное место. Хранилище одиночки
+/// лежит под его uid, и группы с таким номером не существует.
+String? inviteGroupFor(Pair pair, String uid) {
+  final g = pair.groupId;
+  if (g.isEmpty || g == uid || pair.members.length >= 2) return null;
+  return g;
 }
 
 class InviteResult {

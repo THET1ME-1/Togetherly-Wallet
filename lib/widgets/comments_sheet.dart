@@ -8,6 +8,7 @@ import '../logic/money.dart';
 import 'member_badge.dart';
 import 'money_text.dart';
 import '../design/myna.dart';
+import 'motion.dart';
 
 /// Разговор под операцией.
 ///
@@ -41,9 +42,14 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   final _input = TextEditingController();
   bool _hasText = false;
 
+  /// Реплики, которые уже были на экране: при открытии история стоит, а
+  /// выплывает только новая — своя или пришедшая от партнёра.
+  final _seen = <Object>{};
+
   @override
   void initState() {
     super.initState();
+    _seen.addAll(widget.store.commentsOf(widget.op.id).map((c) => c.id));
     _input.addListener(() {
       final now = _input.text.trim().isNotEmpty;
       if (now != _hasText) setState(() => _hasText = now);
@@ -125,10 +131,16 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                       itemCount: said.length,
-                      itemBuilder: (context, i) => _Bubble(
-                        store: store,
-                        comment: said[i],
-                        onDelete: () => store.deleteComment(said[i].id),
+                      itemBuilder: (context, i) => Entry(
+                        key: ValueKey(said[i].id),
+                        group: _seen,
+                        id: said[i].id,
+                        grow: true,
+                        child: _Bubble(
+                          store: store,
+                          comment: said[i],
+                          onDelete: () => store.deleteComment(said[i].id),
+                        ),
                       ),
                     ),
             ),

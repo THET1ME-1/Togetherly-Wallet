@@ -200,6 +200,43 @@ const Map<String, Map<String, String>> accountStrings = {
     'ru': 'Сохранить',
     'en': 'Save',
   },
+  'accountRemove': {
+    'ru': 'Удалить счёт',
+    'en': 'Delete account',
+  },
+  'accountRemoveTitle': {
+    'ru': 'Удалить «%s»?',
+    'en': 'Delete “%s”?',
+  },
+  'accountRemoveAction': {
+    'ru': 'Удалить',
+    'en': 'Delete',
+  },
+  'accountRemoveEmpty': {
+    'ru': 'Операций на счёте нет, пропадёт только сам счёт.',
+    'en': 'The account has no operations. Only the account itself goes.',
+  },
+  'accountRemoveMoveTo': {
+    'ru': 'На счёте %s. Всё переедет на счёт «%s» вместе с остатком.',
+    'en': 'The account has %s. Everything moves to “%s” with the balance.',
+  },
+  'accountRemoveMove': {
+    'ru': 'На счёте %s. Следом выберете счёт для переноса.',
+    'en': 'The account has %s. Next you pick the account to move them to.',
+  },
+  'accountRemoveLose': {
+    'ru': 'На счёте %s, а других счетов нет: всё удалится вместе со счётом.',
+    'en': 'The account has %s and there is no other account, '
+        'so everything goes with it.',
+  },
+  'accountRemoveWhere': {
+    'ru': 'Куда перенести операции?',
+    'en': 'Where do the operations go?',
+  },
+  'accountRemovePartner': {
+    'ru': 'На счёте есть записи партнёра. Перенести их может только он сам.',
+    'en': 'The account holds your partner’s records. Only they can move them.',
+  },
   'accountWhySo': {
     'ru': 'Почему так',
     'en': 'Why this way',

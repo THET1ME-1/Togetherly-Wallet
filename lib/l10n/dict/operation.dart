@@ -92,8 +92,8 @@ const Map<String, Map<String, String>> operationStrings = {
     'en': 'Account',
   },
   'opAccountNew': {
-    'ru': 'Счёта ещё нет — заведём «%s» при записи',
-    'en': 'No account yet — we will create “%s” as you record',
+    'ru': 'Заведём при записи',
+    'en': 'Created when you save',
   },
   'opAccountMake': {
     'ru': 'Завести свой',

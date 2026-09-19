@@ -13,6 +13,7 @@ import '../design/myna.dart';
 import '../logic/card_brands.dart';
 import '../logic/icon_search.dart';
 import '../logic/icons.dart';
+import '../logic/money.dart';
 import '../logic/notice_match.dart';
 import '../services/notices.dart';
 import '../widgets/card_tile.dart';
@@ -20,6 +21,8 @@ import '../widgets/icon_search_sheet.dart';
 import '../widgets/pick_row.dart';
 import '../widgets/sender_logo.dart';
 import '../widgets/settings_kit.dart';
+import '../widgets/app_sheet.dart';
+import '../widgets/wallet_sheet.dart';
 
 /// Правка счёта: имя, чей он, общий ли и как выглядит картой.
 ///
@@ -147,6 +150,63 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
     Navigator.of(context).pop();
   }
 
+  /// Счёт уже заведён: удалять есть что. Новый счёт приходит сюда именем из
+  /// листа и до «Сохранить» не существует.
+  bool get _exists =>
+      store.db.accounts.any((a) => a.name == name) ||
+      store.db.transactions.any((t) => t.account == name);
+
+  /// Удалить счёт. Операции не пропадают молча: лист называет их число и
+  /// говорит, куда они уедут.
+  Future<void> _delete() async {
+    final db = store.db;
+    final ops = db.transactions.where((t) => t.account == name).toList();
+    // Чужую запись сервер правит только в категории: перенос на другой счёт
+    // он молча отбросит, и счёт вернётся со следующим кругом.
+    final me = store.viewer;
+    if (ops.any((t) => (t.author ?? '').isNotEmpty && t.author != me)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('accountRemovePartner'))),
+      );
+      return;
+    }
+    final others = balances(db).where((a) => a.name != name).toList();
+    final count = '${ops.length} ${trn('operations', ops.length)}';
+    final yes = await showMoneySheet<bool>(
+      context,
+      builder: (context) => SheetScaffold(
+        icon: Myna.trash,
+        tone: Theme.of(context).colorScheme.error,
+        title: trf('accountRemoveTitle', [name]),
+        text: ops.isEmpty
+            ? tr('accountRemoveEmpty')
+            : others.isEmpty
+                ? trf('accountRemoveLose', [count])
+                : others.length == 1
+                    ? trf('accountRemoveMoveTo', [count, others.first.name])
+                    : trf('accountRemoveMove', [count]),
+        action: tr('accountRemoveAction'),
+        onAction: () => Navigator.of(context).pop(true),
+      ),
+    );
+    if (yes != true || !mounted) return;
+
+    String? to;
+    if (ops.isNotEmpty && others.isNotEmpty) {
+      to = others.length == 1
+          ? others.first.name
+          : await showMoneySheet<String>(
+              context,
+              builder: (context) => WalletSheet(
+                wallets: others,
+                title: tr('accountRemoveWhere'),
+              ),
+            );
+      if (to == null || !mounted) return;
+    }
+    store.deleteAccount(name, moveTo: to);
+    Navigator.of(context).pop();
+  }
 
   /// Выбрать оформление. Платное сперва спрашивает подписку: калитка стоит
   /// ПЕРЕД выбором, иначе человек увидит свою карту в цвете, который у него
@@ -172,14 +232,30 @@ class _AccountEditScreenState extends State<AccountEditScreen> {
       // через весь экран — лишняя работа пальцем.
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-        child: SizedBox(
-          width: double.infinity,
-          height: 56,
-          child: FilledButton(
-            onPressed: _save,
-            child: Text(tr('accountSave')),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: FilledButton(
+              onPressed: _save,
+              child: Text(tr('accountSave')),
+            ),
           ),
-        ),
+          // Удаление — строкой под главной кнопкой, как в остальных формах
+          // (`FormScreen.danger`).
+          if (_exists)
+            TextButton(
+              onPressed: _delete,
+              child: Text(
+                tr('accountRemove'),
+                style: TextStyle(
+                  fontFamily: AppTheme.bodyFont,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.error,
+                ),
+              ),
+            ),
+        ]),
       ),
       body: ListView(
         padding: EdgeInsets.fromLTRB(

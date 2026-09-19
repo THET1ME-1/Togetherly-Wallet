@@ -53,6 +53,7 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
   ).animate(CurvedAnimation(parent: _c, curve: AppTheme.emphasizedDecelerate));
 
   Timer? _delayTimer;
+  bool _started = false;
 
   @override
   void initState() {
@@ -64,6 +65,18 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
     if (widget.group != null &&
         widget.id != null &&
         !widget.group!.add(widget.id!)) {
+      _c.value = 1;
+      _started = true;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    // Системное «меньше движения»: элемент стоит сразу, без подъёма.
+    if (MediaQuery.maybeOf(context)?.disableAnimations ?? false) {
       _c.value = 1;
       return;
     }

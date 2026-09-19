@@ -39,6 +39,15 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Ссылка-приглашение togetherlywallet://invite/CODE: кнопка
+                 «Открыть в Wallet» на странице togetherly.day/invite/CODE?app=money.
+                 Ловит пакет app_links, разбирает InviteLinks. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="togetherlywallet" android:host="invite"/>
+            </intent-filter>
         </activity>
 
         <!-- Чтение банковских уведомлений: система сама поднимает службу,

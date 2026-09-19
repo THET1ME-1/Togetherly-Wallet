@@ -528,6 +528,9 @@ class Store extends ChangeNotifier {
         _syncMark = (j['syncMark'] as num?)?.toInt() ?? 0;
         _amoled = j['amoled'] == true;
         _categoriesSeeded = j['categoriesSeeded'] == true;
+        _cashSeeded
+          ..clear()
+          ..addAll(((j['cashSeeded'] as List?) ?? const []).map((e) => '$e'));
         _installId = '${j['installId'] ?? ''}';
         _pairChoice = j['pairChoice'] as String? ?? '';
         _viewAll = j['viewAll'] == true;
@@ -691,6 +694,7 @@ class Store extends ChangeNotifier {
       'seenNotices': _seenNotices.toList().reversed.take(200).toList(),
       'noticeHintDone': _noticeHintDone,
       'categoriesSeeded': _categoriesSeeded,
+      'cashSeeded': _cashSeeded.toList(),
       'installId': _installId,
       if (_sourceChoice != null) 'noticeSource': _sourceChoice!.name,
       if (_pairChoice.isNotEmpty) 'pairChoice': _pairChoice,
@@ -963,6 +967,47 @@ class Store extends ChangeNotifier {
       _db.copyWith(transactions: _db.transactions.where((t) => t.id != id).toList()),
       
     );
+  }
+
+  /// Удалить счёт. Операции, регулярные платежи и привязки карт уезжают на
+  /// `moveTo`; без него операции удаляются вместе со счётом.
+  ///
+  /// Удалить счёт было НЕЧЕМ до 19.09.2026: ни на экране счёта, ни в списке.
+  /// А «Наличные» теперь заводятся сами, и лишние человек обязан убрать.
+  ///
+  /// Убрать одну запись счёта мало: `balances` собирает счета и из операций,
+  /// и счёт с операциями вернулся бы на экран сам.
+  void deleteAccount(String name, {String? moveTo}) {
+    final ops = <Transaction>[];
+    for (final t in _db.transactions) {
+      if (t.account != name) {
+        ops.add(t);
+        continue;
+      }
+      _mark('tx:${t.id}');
+      if (moveTo != null) ops.add(t.copyWith(account: moveTo));
+    }
+    // Регулярный платёж без переноса остаётся как есть: сработав, он заведёт
+    // счёт заново, и это честнее, чем молча стереть подписку человека.
+    final recurring = <Recurring>[];
+    for (final r in _db.recurring) {
+      if (moveTo == null || r.account != name) {
+        recurring.add(r);
+        continue;
+      }
+      _mark('rec:${r.id}');
+      recurring.add(Recurring.fromJson({...r.toJson(), 'account': moveTo}));
+    }
+    _noticeAccounts.updateAll((_, v) => v == name ? (moveTo ?? '') : v);
+    _noticeAccounts.removeWhere((_, v) => v.isEmpty);
+    _balanceAccounts.remove(name);
+    _saveSettings();
+    _mark('acc:$name');
+    _apply(_db.copyWith(
+      accounts: _db.accounts.where((a) => a.name != name).toList(),
+      transactions: ops,
+      recurring: recurring,
+    ));
   }
 
   void editAccount(
@@ -2251,6 +2296,55 @@ class Store extends ChangeNotifier {
     setCategories(list);
   }
 
+  /// Хранилища, где «Наличные» уже заводили или где счёт был и без них.
+  ///
+  /// Проверка идёт ОДИН раз на хранилище: удалённые «Наличные» не должны
+  /// возвращаться сами к утру. Хранилище у каждой пары своё, поэтому и метка
+  /// своя — новая пара получает счёт так же, как новый человек.
+  final Set<String> _cashSeeded = {};
+
+  /// Завести «Наличные», если в открытом хранилище нет ни одного счёта.
+  ///
+  /// Без счёта экран записи был урезан: вместо строки счёта стояла подсказка
+  /// «заведём при записи», а дата и ряд пары пропадали вовсе (19.09.2026,
+  /// «не удобно»). Наличные есть у всех, и удалить их можно как любой счёт.
+  ///
+  /// Счёт общий, а не личный: в паре его заводят оба телефона, и одно имя
+  /// сходится в одну строку на сервере. Личный счёт второго человека сервер
+  /// отбил бы — имя уже принадлежит партнёру.
+  void seedCash() {
+    if (_cashSeeded.contains(space)) return;
+    // С сервера ещё ничего не приезжало: пустота мнимая, и заведённый сейчас
+    // счёт уехал бы к партнёру, у которого свои счета давно есть.
+    if (syncEnabled && _syncMark == 0) return;
+    _cashSeeded.add(space);
+    _saveSettings();
+    if (balances(_db).isNotEmpty) return;
+    editAccount(tr('accountDefaultName'), kind: AccountKind.cash);
+  }
+
+  /// Нетронутые «Наличные» гостя не уезжают в аккаунт при входе.
+  ///
+  /// Сервер кладёт присланный счёт поверх своего по имени: пустые гостевые
+  /// «Наличные» стёрли бы цвет, значок и хозяина настоящих. Если в аккаунте
+  /// счетов нет, `seedCash` заведёт их заново после круга синхронизации.
+  void forgetSpareCash() {
+    final name = tr('accountDefaultName');
+    if (_db.transactions.any((t) => t.account == name)) return;
+    final spare = _db.accounts.where((a) =>
+        a.name == name &&
+        a.kind == AccountKind.cash &&
+        a.color == null &&
+        a.icon == null &&
+        a.bank == null &&
+        a.last4 == null &&
+        (a.owner ?? '').isEmpty);
+    if (spare.isEmpty) return;
+    _apply(_db.copyWith(
+      accounts: _db.accounts.where((a) => a.name != name).toList(),
+    ));
+  }
+
   /// Убрать все категории. Операции при этом НЕ трогаются: деньги записаны, и
   /// стирать их вместе с ярлыком нельзя. Трата просто теряет категорию.
   void clearCategories() {
@@ -2698,6 +2792,8 @@ class Store extends ChangeNotifier {
   void wipe() {
     _syncMark = 0;
     _outbox.clear();
+    // Стёртое устройство — чистый лист: после входа счёт проверится заново.
+    _cashSeeded.clear();
     _saveSettings();
     _apply(const Database(), );
   }

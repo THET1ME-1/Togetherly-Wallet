@@ -8,6 +8,7 @@ import '../l10n/strings.dart';
 import '../services/session.dart';
 import 'app_sheet.dart';
 import 'member_badge.dart';
+import 'motion.dart';
 import '../logic/period.dart';
 
 /// Переключатель пары в шапке главной.
@@ -127,6 +128,25 @@ class _SpaceSwitchState extends State<SpaceSwitch> {
     // Чип нужен, когда есть между чем выбирать: своё личное плюс хотя бы одна
     // пара. У человека без пары выбора нет, и кнопки тоже.
     if (_known.isEmpty) return const SizedBox.shrink();
+    // Смена пары перетекает: прежнее имя гаснет, новое проявляется. Подмена
+    // за кадр не давала заметить, что выбор сработал.
+    final space = widget.store.viewAll ? 'all' : widget.store.db.pair.groupId;
+    return AnimatedSwitcher(
+      duration: Motion.still(context) ? Duration.zero : Motion.state,
+      switchInCurve: Motion.enter,
+      switchOutCurve: Motion.exit,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween(begin: const Offset(0, 0.25), end: Offset.zero).animate(animation),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(key: ValueKey(space), child: _chip(context)),
+    );
+  }
+
+  Widget _chip(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final me = widget.session?.uid ?? widget.store.viewer;
     final other = widget.store.db.pair.other(me);
