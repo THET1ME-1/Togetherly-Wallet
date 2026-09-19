@@ -1,0 +1,119 @@
+name: Google Play
+
+# Сборка для Google Play и заливка в трек. По умолчанию — закрытое
+# тестирование (alpha), откуда её получают тестировщики.
+#
+# Запуск: вкладка Actions → «Google Play» → Run workflow, или тег play-vX.Y.Z.
+# Версия и код версии берутся из pubspec.yaml: код должен быть больше, чем у
+# последней залитой сборки, иначе Play откажет.
+#
+# Секреты:
+#   KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD — ключ подписи;
+#     Play принимает только сборки, подписанные ключом загрузки, поэтому без
+#     них прогон падает, а не собирает отладочным ключом.
+#   GOOGLE_SERVICES_JSON — без него плагин Firebase не применяется, и сборка
+#     выходит без пушей.
+#   PLAY_SERVICE_ACCOUNT_JSON — доступ к Play Console.
+#   TESSERA_KEY, BUGSINK_DSN — аналитика и падения.
+#
+# «Что нового» — distribution/whatsnew-play/whatsnew-ru-RU, не длиннее 500
+# знаков.
+on:
+  push:
+    tags: ['play-v*']
+  workflow_dispatch:
+    inputs:
+      track:
+        description: 'Трек Play: alpha (закрытое тестирование), beta, production'
+        required: true
+        default: alpha
+
+env:
+  FLUTTER_VERSION: '3.41.9'
+
+jobs:
+  play:
+    name: AAB в Google Play
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Тесты перед сборкой
+        run: flutter test
+
+      - name: Ключ подписи и Firebase
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD GOOGLE_SERVICES_JSON; do
+            if [ -z "${!v}" ]; then echo "Нет секрета $v"; exit 1; fi
+          done
+          mkdir -p "$HOME/keys"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$HOME/keys/wallet-release.jks"
+          cat > "$HOME/keys/wallet-key.properties" <<EOF
+          storeFile=$HOME/keys/wallet-release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Версия из pubspec
+        id: ver
+        run: |
+          line=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          echo "name=${line%%+*}" >> "$GITHUB_OUTPUT"
+          echo "code=${line##*+}" >> "$GITHUB_OUTPUT"
+
+      - name: Сборка
+        run: |
+          flutter build appbundle --release --flavor play \
+            --dart-define=STORE=play \
+            --dart-define=TESSERA_KEY=${{ secrets.TESSERA_KEY }} \
+            --dart-define=BUGSINK_DSN=${{ secrets.BUGSINK_DSN }}
+
+      # Вкус play срезает разрешение на фоновую службу: в консоли на него
+      # нужна анкета с видео. Проверяется готовый бандл, а не отчёт слияния —
+      # в отчёте удалённые узлы всё равно перечислены.
+      - name: В бандле нет фоновой службы
+        run: |
+          aab=build/app/outputs/bundle/playRelease/app-play-release.aab
+          if unzip -p "$aab" base/manifest/AndroidManifest.xml | grep -aq FOREGROUND_SERVICE; then
+            echo "В манифесте осталось FOREGROUND_SERVICE"; exit 1
+          fi
+          mkdir -p out
+          cp "$aab" "out/Togetherly-Wallet-${{ steps.ver.outputs.name }}-${{ steps.ver.outputs.code }}-play.aab"
+          ls -lh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Togetherly-Wallet-${{ steps.ver.outputs.name }}-${{ steps.ver.outputs.code }}-play
+          path: out/*.aab
+
+      - name: Заливка в Play
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.togetherly.money
+          releaseFiles: build/app/outputs/bundle/playRelease/app-play-release.aab
+          track: ${{ github.event.inputs.track || 'alpha' }}
+          status: completed
+          whatsNewDirectory: distribution/whatsnew-play
+          releaseName: ${{ steps.ver.outputs.name }} (${{ steps.ver.outputs.code }})
