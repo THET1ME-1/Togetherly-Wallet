@@ -637,6 +637,9 @@ class Store extends ChangeNotifier {
                   ((e.value as List?) ?? const []).map((t) => (t as num).toInt()).toList())));
       } catch (_) { /* настройки не критичны */ }
     }
+    // Почта и доски объявлений закрыты с 0.6.6: их карточки, накопленные
+    // прежней версией, в разборе не место.
+    dropBlindNotices();
     _ready = true;
     notifyListeners();
   }
@@ -1573,7 +1576,17 @@ class Store extends ChangeNotifier {
   /// Ни одно уведомление не пропадает молча: всё, что не записалось, видно
   /// списком, иначе человек не поймёт, работает приложение или нет.
   bool addNotice(ParsedNotice notice) {
-    if (modeOf(notice.package) == NoticeMode.off) return false;
+    if (modeOf(notice.package) == NoticeMode.off) {
+      // Почта и доски объявлений молчат по умолчанию, но след оставляют:
+      // иначе источника нет в списке, и включить его руками негде. Выключил
+      // источник сам человек — второй раз показывать его незачем.
+      if (isMoneyBlind(notice.package) && !_senders.containsKey(notice.package)) {
+        _logNotice(notice.package, notice.at);
+        _saveSettings();
+        notifyListeners();
+      }
+      return false;
+    }
 
     // Без суммы записывать нечего: «Карта использована», код подтверждения,
     // реклама. А сумма без единой примёты операции — карты, магазина или
@@ -1828,6 +1841,16 @@ class Store extends ChangeNotifier {
     _saveSettings();
     notifyListeners();
   }
+
+  /// Выбрано ли «Только я» — личное пространство под своим uid.
+  ///
+  /// Пара при этом жива и лежит на сервере, поэтому спрашивать её у сервера
+  /// нельзя: `loadPair` не находит личное пространство среди групп и честно
+  /// отдаёт первую пару, а та встаёт поверх выбора. Человек нажимал «Только
+  /// я», видел, что «страница просто обновляется», и возвращался в пару — а
+  /// записи, сделанные в личном, при этом терялись (22.09.2026).
+  bool soloChosenBy(String uid) => uid.isNotEmpty && _pairChoice == uid;
+
   NoticeSource? get noticeSource {
     if (_sourceChoice != null) return _sourceChoice;
     // Выбора не было: отвечаем по тому, что человек включил руками.
@@ -1871,6 +1894,21 @@ class Store extends ChangeNotifier {
   }
 
   /// Как обходиться с уведомлениями этого приложения.
+  /// Убрать из разбора карточки источников, которые про деньги не говорят.
+  ///
+  /// Очередь копилась и до запрета: у тестировщика 22.09.2026 в разборе висели
+  /// письмо о счёте провайдера и объявление с 999.md на 65 000 €. Обновление
+  /// закрывает источник, а карточки без этой уборки остались бы на экране.
+  /// Включённый руками источник не трогаем — это выбор человека.
+  void dropBlindNotices() {
+    final before = _pending.length;
+    _pending.removeWhere(
+        (n) => isMoneyBlind(n.package) && modeOf(n.package) == NoticeMode.off);
+    if (_pending.length == before) return;
+    _saveSettings();
+    notifyListeners();
+  }
+
   void setSenderMode(String package, NoticeMode mode) {
     _senders[package] = mode;
     if (mode == NoticeMode.off) {

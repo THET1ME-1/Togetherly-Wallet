@@ -54,6 +54,14 @@ const Map<String, Map<String, String>> restStrings = {
     'ru': 'Убрать все',
     'en': 'Clear all',
   },
+  'reviewSaveAll': {
+    'ru': 'Записать все · %s',
+    'en': 'Save all · %s',
+  },
+  'reviewSaveAllHint': {
+    'ru': 'Остальные ждут ответа: счёт непонятен или разбор неуверенный',
+    'en': 'The rest need you: no account, or the parse is unsure',
+  },
   'reviewSetUp': {
     'ru': 'Настроить',
     'en': 'Set up',

@@ -33,6 +33,7 @@ import '../widgets/goal_vessel.dart';
 import '../widgets/money_text.dart';
 import '../widgets/quarters.dart';
 import '../services/session.dart';
+import '../services/sync.dart';
 import '../widgets/reveal.dart';
 import '../widgets/space_switch.dart';
 import '../widgets/section_card.dart';
@@ -68,15 +69,31 @@ class HomeScreen extends StatelessWidget {
   /// Учётка: нужна переключателю пар в шапке. Без неё чипа просто нет.
   final Session? session;
 
+  /// Синхронизация: главная говорит вслух, когда записи застряли на телефоне.
+  /// Пусто — в тестах и у того, кто живёт без аккаунта.
+  final Sync? sync;
+
   /// Круг синхронизации после смены пары: вторая пара могла обновиться, пока
   /// человек смотрел на первую.
   final VoidCallback? onSpaceSwitched;
+  /// Записи лежат в очереди дольше десяти минут — значит не уехали, а
+  /// застряли. Короткая заминка (лифт, метро, переключение сети) — обычное
+  /// дело, и кричать о ней нельзя: очередь разгребается сама за секунды.
+  bool get _stuck {
+    final s = sync;
+    if (s == null || store.outbox.isEmpty) return false;
+    final ok = s.lastOk;
+    if (ok == null) return s.error != null || s.retrying;
+    return DateTime.now().difference(ok) > const Duration(minutes: 10);
+  }
+
   /// Переход в ленту с готовым отбором. Третьим приезжает отрезок блока:
   /// у каждой карточки он свой, и лента должна показать именно его.
   final void Function(String? category, bool income, [Period? period]) onDrill;
 
   const HomeScreen({
     super.key,
+    this.sync,
     required this.store,
     this.ads,
     this.plus,
@@ -211,6 +228,18 @@ class HomeScreen extends StatelessWidget {
               // как «приложение продаёт меня раньше, чем показывает деньги»
               // (раскладка человека 16.09.2026). Подписчику баннера нет.
               if (ads != null) AdBanner(ads: ads!, spot: AdSpot.homeTop),
+              // Записи, застрявшие на телефоне. Человек уверен, что записал
+              // трату и партнёр её видит, — а она лежит в очереди, потому что
+              // до сервера не достучаться. До 22.09.2026 об этом знали только
+              // настройки, куда за этим не ходят: тестировщик записал траты,
+              // партнёр их не увидел, и оба считали, что приложение врёт.
+              if (_stuck) ...[
+                Reveal(
+                  delay: const Duration(milliseconds: 8),
+                  child: _StuckCard(count: store.outbox.length, onOpen: onSettings),
+                ),
+                const SizedBox(height: 12),
+              ],
               // Списания, прочитанные из уведомлений банка: одно касание — и
               // трата в приложении. Стоит выше остального, потому что это
               // единственное место, где приложение ждёт ответа.
@@ -1485,6 +1514,67 @@ class _DebtCard extends StatelessWidget {
 }
 
 /// Новые списания из уведомлений банка.
+/// Карточка «Записи не уехали».
+class _StuckCard extends StatelessWidget {
+  const _StuckCard({required this.count, required this.onOpen});
+
+  final int count;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(28),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(28),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: context.tm.expense.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Myna.cloudOff, size: 20, color: context.tm.expense),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  tr('stuckTitle'),
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  trf('stuckHint', [count]),
+                  style: TextStyle(
+                    fontFamily: AppTheme.bodyFont,
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ]),
+            ),
+            Icon(Myna.chevronRight, color: scheme.onSurfaceVariant),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 class _NoticesCard extends StatelessWidget {
   const _NoticesCard({required this.count, required this.onOpen});
 

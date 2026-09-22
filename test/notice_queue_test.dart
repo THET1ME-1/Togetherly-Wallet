@@ -523,5 +523,53 @@ void main() {
       );
       expect(at, 'Карта Линеллы');
     });
+
+    /// Телефон тестировщика 22.09.2026: один счёт «Наличные», три карточки в
+    /// разборе и серая кнопка «Записать» — счёт не подставился, а другого в
+    /// приложении и нет. Человек решил, что списания не записываются вовсе.
+    const single = Database(
+      baseCurrency: 'MDL',
+      accounts: [Account(name: 'Наличные', currency: 'MDL')],
+    );
+
+    test('единственный счёт подставляется, даже когда банк назвал чужую карту',
+        () {
+      final at = accountForNotice(
+        single,
+        const ParsedNoticeRef(package: 'md.maib.maibank', last4: '9010'),
+        learned: const {},
+      );
+      expect(at, 'Наличные');
+    });
+
+    test('единственный счёт подставляется и незнакомому источнику', () {
+      final at = accountForNotice(
+        single,
+        const ParsedNoticeRef(package: 'md.some.newbank'),
+        learned: const {},
+      );
+      expect(at, 'Наличные');
+    });
+
+    test('служебный счёт единственным не считается', () {
+      final at = accountForNotice(
+        const Database(
+          baseCurrency: 'MDL',
+          accounts: [Account(name: 'Цель: Подушка', currency: 'MDL')],
+        ),
+        const ParsedNoticeRef(package: 'md.maib.maibank', last4: '9010'),
+        learned: const {},
+      );
+      expect(at, isNull);
+    });
+
+    test('счетов несколько — догадки по-прежнему нет', () {
+      final at = accountForNotice(
+        db,
+        const ParsedNoticeRef(package: 'md.maib.mobile', last4: '9010'),
+        learned: const {},
+      );
+      expect(at, isNull, reason: 'это другая карта того же банка');
+    });
   });
 }

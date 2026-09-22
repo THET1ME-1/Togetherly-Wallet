@@ -810,8 +810,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         icon: Myna.archive,
         title: tr('backupsPick'),
         text: tr('backupsText'),
-        action: tr('cancel'),
-        onAction: () => Navigator.of(context).pop(),
         child: Column(children: [
           for (final file in _backups)
             _BackupLine(
@@ -1015,8 +1013,6 @@ class _PairBlockState extends State<_PairBlock> {
         icon: Myna.users,
         title: tr('pairSwitchTitle'),
         text: tr('pairSwitchText'),
-        action: tr('cancel'),
-        onAction: () => Navigator.of(context).pop(),
         child: Column(children: [
           for (final p in _others)
             _PairLine(

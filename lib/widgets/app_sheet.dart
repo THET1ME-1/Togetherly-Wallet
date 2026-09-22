@@ -34,12 +34,17 @@ Future<T?> showMoneySheet<T>(
 /// Кнопка решения стоит ВО ВСЮ ШИРИНУ и первой снизу — палец попадает в неё не
 /// глядя. «Отмена» под ней текстом: отменяют чаще, чем подтверждают опасное, но
 /// целиться в отмену не нужно — она же и по свайпу вниз, и по касанию мимо.
+///
+/// В листе ВЫБОРА решения нет: человек касается строки, и лист закрывается.
+/// Такой лист оставляет [action] пустым, и большая кнопка не рисуется вовсе.
+/// Иначе выходили две «Отмены» подряд — белая кнопка и текст под ней
+/// («И две кнопки отмена», 22.09.2026).
 class SheetScaffold extends StatelessWidget {
   const SheetScaffold({
     super.key,
     required this.title,
-    required this.action,
-    required this.onAction,
+    this.action,
+    this.onAction,
     this.icon,
     this.text,
     this.tone,
@@ -50,8 +55,9 @@ class SheetScaffold extends StatelessWidget {
 
   final String title;
 
-  /// Слово на главной кнопке: «Распустить», «Удалить», «Выйти».
-  final String action;
+  /// Слово на главной кнопке: «Распустить», «Удалить», «Выйти». Пусто — в
+  /// листе нечего решать, и кнопки нет.
+  final String? action;
 
   /// Что делать по нажатию. Лист закрывает вызывающий: он знает, что вернуть.
   final VoidCallback? onAction;
@@ -130,32 +136,33 @@ class SheetScaffold extends StatelessWidget {
                 const SizedBox(height: 18),
                 child!,
               ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: FilledButton(
-                  onPressed: actionEnabled ? onAction : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: accent,
-                    foregroundColor: inkOn(accent),
-                    disabledBackgroundColor: scheme.surfaceContainerHighest,
-                    disabledForegroundColor: scheme.onSurfaceVariant,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
+              SizedBox(height: action == null ? 12 : 24),
+              if (action != null)
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: FilledButton(
+                    onPressed: actionEnabled ? onAction : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: accent,
+                      foregroundColor: inkOn(accent),
+                      disabledBackgroundColor: scheme.surfaceContainerHighest,
+                      disabledForegroundColor: scheme.onSurfaceVariant,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                     ),
-                  ),
-                  child: Text(
-                    action,
-                    style: TextStyle(
-                      fontFamily: AppTheme.bodyFont,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                    child: Text(
+                      action!,
+                      style: TextStyle(
+                        fontFamily: AppTheme.bodyFont,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 6),
+              if (action != null) const SizedBox(height: 6),
               SizedBox(
                 width: double.infinity,
                 height: 48,

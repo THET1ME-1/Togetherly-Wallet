@@ -146,6 +146,10 @@ class Sync extends ChangeNotifier {
   /// без имён лента показывает «партнёр» вместо человека.
   Future<void> _refreshPair() async {
     if (store.db.pair.members.length > 1) return;
+    // «Только я» — тоже выбор человека, и пара его не отменяет: в личном
+    // пространстве участник один, и без этой проверки круг синхронизации
+    // возвращал пару поверх выбора вместе с потерей личных записей.
+    if (store.soloChosenBy(session.uid)) return;
     final loaded = await session.loadPair(preferred: store.pairChoice);
     if (loaded != null && loaded.groupId.isNotEmpty) store.setPair(loaded);
   }

@@ -199,6 +199,16 @@ const Map<String, Map<String, String>> homeStrings = {
     'ru': 'Данные лежат на устройстве',
     'en': 'Data stays on this device',
   },
+  'stuckTitle': {
+    'ru': 'Записи не уехали',
+    'en': 'Records are not sent',
+  },
+  'stuckHint': {
+    'ru': 'Ждут связи: %s. Партнёр их пока не видит — приложение пробует '
+        'отправить снова.',
+    'en': 'Waiting for the network: %s. Your partner cannot see them yet — '
+        'the app keeps trying.',
+  },
   'noticesHint': {
     'ru': 'Банк прислал, приложение разобрало. Проверьте и запишите.',
     'en': 'The bank sent it, the app read it. Check and save.',

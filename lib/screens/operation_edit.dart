@@ -332,8 +332,6 @@ class _OperationScreenState extends State<OperationScreen> {
         icon: Myna.users,
         title: tr('opShareTitle'),
         text: tr('opShareText'),
-        action: tr('cancel'),
-        onAction: () => Navigator.of(context).pop(),
         child: Column(
           children: [
             for (final s in _otherSpaces)
@@ -575,8 +573,6 @@ class _OperationScreenState extends State<OperationScreen> {
         icon: Myna.users,
         title: tr('opMoveTitle'),
         text: tr('opMoveText'),
-        action: tr('cancel'),
-        onAction: () => Navigator.of(context).pop(),
         child: Column(
           children: [
             for (final s in _otherSpaces)
@@ -1047,8 +1043,6 @@ class _OperationScreenState extends State<OperationScreen> {
         icon: Myna.user,
         title: tr('opPayerTitle'),
         text: tr('opPayerNote'),
-        action: tr('cancel'),
-        onAction: () => Navigator.of(context).pop(),
         child: Column(
           children: [
             for (final m in members)

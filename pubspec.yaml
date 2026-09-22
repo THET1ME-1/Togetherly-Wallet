@@ -1,7 +1,7 @@
 name: togetherly_money
 description: Togetherly Wallet — финансы пары в экосистеме Togetherly. Форк Орбиты.
 publish_to: none
-version: 0.6.5+31
+version: 0.6.6+32
 
 environment:
   sdk: ^3.11.0

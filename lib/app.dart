@@ -311,7 +311,11 @@ class _MoneyAppState extends State<MoneyApp> with WidgetsBindingObserver {
   /// все свои записи.
   Future<void> _afterSignIn() async {
     try {
-      final pair = await account.loadPair(preferred: store.pairChoice);
+      // Человек выбрал «Только я» — пару не подставляем: на сервере она жива,
+      // и `loadPair` отдал бы её поверх выбора.
+      final pair = store.soloChosenBy(account.uid)
+          ? null
+          : await account.loadPair(preferred: store.pairChoice);
       if (pair != null && pair.groupId.isNotEmpty) store.setPair(pair);
     } catch (_) {
       // Пара подтянется следующим кругом: без неё приложение работает.
@@ -596,6 +600,7 @@ class _ShellState extends State<Shell> {
           ads: ads,
           plus: widget.plus,
           session: widget.session,
+          sync: widget.sync,
           onSpaceSwitched: () => widget.sync?.run(),
           period: _period,
           onPeriod: (p) => setState(() => _period = p),

@@ -268,8 +268,6 @@ class _PlanScreenState extends State<PlanScreen> {
           icon: Myna.list,
           title: title,
           text: '',
-          action: tr('cancel'),
-          onAction: () => Navigator.of(context).pop(),
           child: Column(children: [
             for (final name in options)
               _PickLine(

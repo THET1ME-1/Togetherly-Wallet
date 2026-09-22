@@ -123,6 +123,34 @@ class _NoticesReviewScreenState extends State<NoticesReviewScreen> {
                     key: const ValueKey('list'),
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 40),
                     children: [
+                      // Трата уже произошла — заходить и подтверждать каждую
+                      // человек не нанимался («зачем ждать, я заходить и жать
+                      // Записать», 22.09.2026). Одно касание пишет всё, что
+                      // приложение поняло наверняка; спорное остаётся ждать.
+                      if (_ready.length > 1) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: FilledButton(
+                            onPressed: _acceptAll,
+                            child: Text(trf('reviewSaveAll', [_ready.length])),
+                          ),
+                        ),
+                        if (_ready.length < pending.length)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+                            child: Text(
+                              tr('reviewSaveAllHint'),
+                              style: TextStyle(
+                                fontFamily: AppTheme.bodyFont,
+                                fontSize: 12.5,
+                                height: 1.35,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                      ],
                       for (final notice in shown)
                         Leaving(
                           key: ValueKey(notice.fingerprint),
@@ -153,6 +181,58 @@ class _NoticesReviewScreenState extends State<NoticesReviewScreen> {
     for (final notice in store.pendingNotices) {
       _exit[notice.fingerprint] = -1;
       store.dismissNotice(notice);
+    }
+  }
+
+  /// Списания, у которых спрашивать нечего: разбор уверенный и счёт понятен.
+  ///
+  /// Неуверенное сюда не попадает намеренно — объявление с доски объявлений
+  /// на 65 000 € приходило именно таким, и записывать такое пачкой нельзя.
+  List<ParsedNotice> get _ready => store.pendingNotices
+      .where((n) =>
+          n.ok &&
+          accountForNotice(
+                store.db,
+                ParsedNoticeRef(package: n.package, last4: n.last4),
+                learned: store.noticeAccounts,
+              ) !=
+              null)
+      .toList();
+
+  void _acceptAll() {
+    Tap.done();
+    for (final notice in _ready) {
+      final account = accountForNotice(
+        store.db,
+        ParsedNoticeRef(package: notice.package, last4: notice.last4),
+        learned: store.noticeAccounts,
+      );
+      if (account == null) continue;
+      _exit[notice.fingerprint] = 1;
+      // Ту же трату человек мог записать руками до пуша: вторая такая же
+      // строка хуже, чем ни одной.
+      final day = DateTime.fromMillisecondsSinceEpoch(notice.at)
+          .toIso8601String()
+          .substring(0, 10);
+      if (alreadyRecorded(store.db,
+          amount: notice.amount,
+          currency: notice.currency,
+          date: day,
+          account: account)) {
+        store.dismissNotice(notice);
+        continue;
+      }
+      Analytics.instance.action('notice_accepted', params: {
+        'has_category': categoryForNotice(notice.merchant, store.noticeCategories) != null,
+        'confident': notice.confidence >= 0.7,
+        'bulk': true,
+      });
+      store.acceptNotice(
+        notice,
+        account: account,
+        category: categoryForNotice(notice.merchant, store.noticeCategories),
+        subcategory: subcategoryForNotice(notice.merchant, store.noticeCategories),
+      );
     }
   }
 }

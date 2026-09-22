@@ -55,8 +55,17 @@ String systemTimerDay(Object? timers) {
 /// Календарный день из строки как написан: «2026-08-12 21:40:00.000Z» →
 /// «2026-08-12». Пояс не пересчитывается — так же читает Togetherly, и одна
 /// пара видит в двух приложениях один день.
+///
+/// Дата вне человеческого века — опечатка, и датой она не считается. В
+/// таймере Togetherly вводят день руками, и промах по цифре даёт «Пара с 15
+/// июня 1026» (22.09.2026): правило «берём самую раннюю» делало такую дату
+/// вечным победителем. Отброшенная опечатка уступает место дню коннекта.
 String dayOf(Object? raw) {
   final text = '${raw ?? ''}'.trim();
   final m = RegExp(r'^\d{4}-\d{2}-\d{2}').firstMatch(text);
-  return m == null ? '' : m.group(0)!;
+  if (m == null) return '';
+  final day = m.group(0)!;
+  final year = int.parse(day.substring(0, 4));
+  if (year < 1900 || year > DateTime.now().year + 1) return '';
+  return day;
 }

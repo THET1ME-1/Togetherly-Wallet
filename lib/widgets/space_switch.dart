@@ -75,8 +75,6 @@ class _SpaceSwitchState extends State<SpaceSwitch> {
         icon: Myna.users,
         title: tr('spaceTitle'),
         text: tr('spaceText'),
-        action: tr('cancel'),
-        onAction: () => Navigator.of(context).pop(),
         child: Column(children: [
           // «Все пары» — только взгляд: записи по-прежнему ложатся в открытую
           // пару, а сводка считается на этом телефоне и никому не уезжает.

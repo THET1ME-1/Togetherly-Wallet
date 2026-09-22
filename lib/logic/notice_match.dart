@@ -125,6 +125,68 @@ const twinSenders = <String>{
   'com.samsung.android.spay',
 };
 
+/// Приложения, которые про деньги НЕ говорят, хотя суммы в их уведомлениях
+/// есть всегда: почта, мессенджеры, доски объявлений.
+///
+/// «И нафиг оно с почты берёт, если ещё не платил» (22.09.2026). В разбор
+/// попали письмо о выставленном счёте провайдера («plata 1 153,00 MDL» —
+/// счёт выставлен, деньги никуда не ушли) и объявление с 999.md —
+/// «Apartament cu camere» на 65 000 €, которое приложение записало расходом.
+///
+/// Правило «читаем любое приложение» это не отменяет: незнакомый банк
+/// по-прежнему проходит сам. Здесь перечислено то, что банком не станет
+/// никогда. Источник виден в списке и включается руками — банк действительно
+/// может слать выписку письмом, и это выбор человека, а не умолчание.
+const nonMoneySenders = <String>{
+  // Почта
+  'com.google.android.gm',
+  'com.google.android.apps.inbox',
+  'com.microsoft.office.outlook',
+  'com.android.email',
+  'com.samsung.android.email.provider',
+  'ru.mail.mailapp',
+  'com.my.mail',
+  'com.yandex.mail',
+  'ru.yandex.mail',
+  'ch.protonmail.android',
+  'me.proton.android.mail',
+  'com.fsck.k9',
+  'org.kman.AquaMail',
+  'com.zoho.mail',
+  'com.readdle.spark',
+  'com.yahoo.mobile.client.android.mail',
+  // Мессенджеры и соцсети
+  'org.telegram.messenger',
+  'org.telegram.plus',
+  'com.whatsapp',
+  'com.whatsapp.w4b',
+  'com.viber.voip',
+  'com.facebook.orca',
+  'com.facebook.katana',
+  'com.instagram.android',
+  'com.vkontakte.android',
+  'ru.ok.android',
+  'com.twitter.android',
+  'com.discord',
+  'com.Slack',
+  'com.skype.raider',
+  'org.thoughtcrime.securesms',
+  // Доски объявлений и барахолки
+  'com.avito.android',
+  'com.olx.pl',
+  'ua.slando',
+};
+
+/// Целые семейства приложений одного издателя: у Simpals это 999.md, point.md
+/// и остальное молдавское хозяйство — ни одно из них не банк.
+const nonMoneyPrefixes = <String>{'md.simpals.', 'com.olx.'};
+
+/// Говорит ли приложение о ДЕНЬГАХ вообще. Всё неизвестное — говорит: список
+/// банков не ограничивает чтение, ограничивает только этот запрет.
+bool isMoneyBlind(String package) =>
+    nonMoneySenders.contains(package) ||
+    nonMoneyPrefixes.any(package.startsWith);
+
 /// Режим источника по умолчанию.
 ///
 /// Без выбора человека спрашивают ВСЕ — и банк, и кошелёк: пропущенная трата
@@ -132,6 +194,8 @@ const twinSenders = <String>{
 /// сделан — он и решает, и решает СРАЗУ для всех, не заводя записи каждому из
 /// шести десятков приложений справочника.
 NoticeMode defaultModeFor(String package, [NoticeSource? source]) {
+  // Почта и объявления молчат, пока человек сам их не включит.
+  if (isMoneyBlind(package)) return NoticeMode.off;
   final wallet = twinSenders.contains(package);
   if (source == null) return NoticeMode.ask;
   final want = wallet
@@ -214,6 +278,13 @@ String? accountForNotice(
   if (remembered != null && db.accounts.any((a) => a.name == remembered)) {
     return remembered;
   }
+
+  // Счёт в приложении ОДИН — выбирать не из чего, и спрашивать не о чем.
+  // У тестировщика 22.09.2026 были «Наличные», карточки из банка с чужими
+  // цифрами и серая кнопка «Записать»: счёт не подставился, а другого и не
+  // было. Служебные счета (цель, долг, расчёт) за счёт не считаются.
+  final real = db.accounts.where((a) => !isVirtualAccount(a.name)).toList();
+  if (real.length == 1) return real.first.name;
 
   final digits = notice.last4;
   if (digits != null && digits.isNotEmpty) {
