@@ -41,7 +41,7 @@ jobs:
         # пуши от партнёра доставляет живой канал пары. Без ключа подписи
         # Gradle берёт отладочный: такой APK ставится на чистое устройство, но
         # не поверх настоящего — подписи не совпадут.
-        run: flutter build apk --release --split-per-abi --dart-define=STORE=github
+        run: flutter build apk --release --split-per-abi --flavor full --dart-define=STORE=github
 
       - uses: actions/upload-artifact@v4
         with:

@@ -75,7 +75,7 @@ jobs:
         # ничего никуда не шлёт. Без ключа сборка тоже проходит — аналитика
         # просто молчит.
         run: |
-          flutter build apk --release --split-per-abi \
+          flutter build apk --release --split-per-abi --flavor full \
             --dart-define=STORE=github \
             --dart-define=TESSERA_KEY=${{ secrets.TESSERA_KEY }} \
             --dart-define=BUGSINK_DSN=${{ secrets.BUGSINK_DSN }}
@@ -93,7 +93,7 @@ jobs:
           fi
           mkdir -p out
           for abi in arm64-v8a armeabi-v7a x86_64; do
-            src="build/app/outputs/flutter-apk/app-$abi-release.apk"
+            src="build/app/outputs/flutter-apk/app-$abi-full-release.apk"
             [ -f "$src" ] || continue
             cp "$src" "out/Togetherly-Wallet-$version-$abi$suffix.apk"
           done
