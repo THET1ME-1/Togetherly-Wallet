@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:togetherly_money/data/models.dart';
 import 'package:togetherly_money/data/store.dart';
 import 'package:togetherly_money/design/money_theme.dart';
+import 'package:togetherly_money/l10n/strings.dart';
 import 'package:togetherly_money/logic/money.dart';
 import 'package:togetherly_money/widgets/money_text.dart';
 import 'package:togetherly_money/logic/notice_match.dart';
@@ -88,6 +89,73 @@ void main() {
       store.setRate('MDL', 0.056);
 
       expect(store.outbox, contains('settings:base'));
+    });
+
+    // WALLET-2, обращение 236: валюту в настройках сменили, а новая трата
+    // снова в леях. Трата берёт валюту счёта, а «Наличные», которые
+    // приложение заводит само, остались в прежней базовой.
+    Store withCash({bool used = false}) => Store()
+      ..importBackupForTest(Database(
+        baseCurrency: 'MDL',
+        accounts: [
+          Account(name: tr('accountDefaultName'), currency: 'MDL', kind: AccountKind.cash),
+          const Account(name: 'Карта maib', currency: 'MDL'),
+        ],
+        transactions: [
+          if (used)
+            Transaction(
+              id: 'c1',
+              date: '2026-10-19',
+              kind: TxKind.expense,
+              account: tr('accountDefaultName'),
+              currency: 'MDL',
+              amount: -50,
+              amountBase: -50,
+            ),
+        ],
+      ));
+
+    Account accountOf(Store store, String name) =>
+        store.db.accounts.firstWhere((a) => a.name == name);
+
+    test('нетронутые «Наличные» переходят в новую базовую валюту', () {
+      final store = withCash()..syncEnabled = true;
+      store.setBaseCurrency('RUB');
+
+      expect(accountOf(store, tr('accountDefaultName')).currency, 'RUB');
+      expect(store.outbox, contains('acc:${tr('accountDefaultName')}'));
+    });
+
+    test('счёт, заведённый человеком, валюту не меняет', () {
+      final store = withCash();
+      store.setBaseCurrency('RUB');
+
+      expect(accountOf(store, 'Карта maib').currency, 'MDL',
+          reason: 'карту maib в леях человек завёл сам');
+    });
+
+    test('«Наличные» с записями остаются в своей валюте', () {
+      final store = withCash(used: true);
+      store.setBaseCurrency('RUB');
+
+      expect(accountOf(store, tr('accountDefaultName')).currency, 'MDL',
+          reason: 'смена валюты не пересчитывает историю');
+    });
+
+    testWidgets('новая трата после смены валюты стоит в новой валюте', (tester) async {
+      tester.view.physicalSize = const Size(393 * 3, 852 * 3);
+      tester.view.devicePixelRatio = 3.0;
+      addTearDown(tester.view.reset);
+
+      final store = withCash()..setBaseCurrency('RUB');
+      await tester.pumpWidget(MaterialApp(
+        theme: MoneyTheme.light(),
+        home: OperationScreen(store: store),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('RUB'), findsWidgets);
+      expect(find.textContaining('MDL'), findsNothing);
     });
   });
 

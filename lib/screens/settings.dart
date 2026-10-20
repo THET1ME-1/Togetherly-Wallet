@@ -112,7 +112,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _lockNote() {
     final lock = widget.lock;
     if (lock == null || !lock.enabled) return tr('lockRowOff');
-    return lock.biometrics ? tr('lockRowBoth') : tr('lockRowOn');
+    return lock.biometrics ? trOs('lockRowBoth') : tr('lockRowOn');
   }
 
   /// Замок: завести код, включить отпечаток, снять.
@@ -166,8 +166,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (can)
                 SettingsRow(
                   icon: Myna.faceId,
-                  title: tr('lockBiometrics'),
-                  subtitle: tr('lockBiometricsNote'),
+                  title: trOs('lockBiometrics'),
+                  subtitle: trOs('lockBiometricsNote'),
                   trailing: Switch(
                     value: lock.biometrics,
                     onChanged: (v) => lock.setBiometrics(v),
@@ -415,6 +415,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: const SettingsChevron(),
                   onTap: _openLock,
                 ),
+                // На iPhone уведомления читать нельзя, а строка о том, что это
+                // умеет Android, нарушала бы правило App Store 2.3.10
+                if (Notices.platformReads)
                 SettingsRow(
                   icon: Myna.bellOn,
                   title: tr('noticesRow'),

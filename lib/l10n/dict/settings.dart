@@ -467,6 +467,10 @@ const Map<String, Map<String, String>> settingsStrings = {
     'ru': 'Код и отпечаток',
     'en': 'Code and fingerprint',
   },
+  'lockRowBothIos': {
+    'ru': 'Код, Face ID или Touch ID',
+    'en': 'Code, Face ID or Touch ID',
+  },
   'lockTitle': {
     'ru': 'Введите код',
     'en': 'Enter your code',
@@ -491,9 +495,17 @@ const Map<String, Map<String, String>> settingsStrings = {
     'ru': 'Открывать отпечатком',
     'en': 'Unlock with a fingerprint',
   },
+  'lockBiometricsIos': {
+    'ru': 'Открывать по Face ID или Touch ID',
+    'en': 'Unlock with Face ID or Touch ID',
+  },
   'lockBiometricsNote': {
     'ru': 'Код остаётся: им открывают, когда отпечаток не сработал',
     'en': 'The code stays: it opens the app when the fingerprint fails',
+  },
+  'lockBiometricsNoteIos': {
+    'ru': 'Код остаётся: им открывают, когда Face ID или Touch ID не сработал',
+    'en': 'The code stays: it opens the app when Face ID or Touch ID fails',
   },
   'lockChange': {
     'ru': 'Сменить код',

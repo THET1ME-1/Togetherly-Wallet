@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../data/links.dart';
 import '../design/app_theme.dart';
 import '../design/myna.dart';
 import '../l10n/strings.dart';
@@ -7,6 +8,7 @@ import '../data/models.dart';
 import '../logic/period.dart';
 import '../logic/plus.dart';
 import '../logic/store_kind.dart';
+import '../services/notices.dart';
 import '../services/plus.dart';
 import '../widgets/app_sheet.dart';
 import '../widgets/member_badge.dart';
@@ -137,36 +139,58 @@ class _PlusScreenState extends State<PlusScreen> {
                 delay: const Duration(milliseconds: 120),
                 child: const _Free(),
               ),
+              // Магазин продлевает подписку сам, и человек узнаёт это до оплаты
+              if (!active && plusRenewalNote(kStore) != null) ...[
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    tr(plusRenewalNote(kStore)!),
+                    style: TextStyle(
+                      fontFamily: AppTheme.bodyFont,
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
           bottomNavigationBar: SafeArea(
-            minimum: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-            child: active
-                ? OutlinedButton(
-                    onPressed: widget.onManage,
-                    child: Text(tr('plusManage')),
+            minimum: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (active)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: widget.onManage,
+                      child: Text(tr('plusManage')),
+                    ),
                   )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: FilledButton(
-                          onPressed: widget.plus.busy ? null : _buy,
-                          child: Text(tr('plusBuy')),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: widget.plus.busy
-                            ? null
-                            : () => widget.onRestore == null
-                                  ? _say(tr('plusSoon'))
-                                  : widget.onRestore!(),
-                        child: Text(tr('plusRestore')),
-                      ),
-                    ],
+                else ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: FilledButton(
+                      onPressed: widget.plus.busy ? null : _buy,
+                      child: Text(tr('plusBuy')),
+                    ),
                   ),
+                  TextButton(
+                    onPressed: widget.plus.busy
+                        ? null
+                        : () => widget.onRestore == null
+                              ? _say(tr('plusSoon'))
+                              : widget.onRestore!(),
+                    child: Text(tr('plusRestore')),
+                  ),
+                ],
+                const _Legal(),
+              ],
+            ),
           ),
         );
       },
@@ -707,6 +731,8 @@ class _Features extends StatelessWidget {
     (Myna.droplet, 'plusFeatureLooks', 'plusFeatureLooksNote'),
   ];
 
+  static const _noticeRows = {'plusFeatureAuto', 'plusFeatureRules'};
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -715,7 +741,9 @@ class _Features extends StatelessWidget {
         SettingsSection(tr('plusWhatsIn'), icon: Myna.sparkles),
         SettingsGroup([
           for (final (icon, title, note) in _rows)
-            SettingsRow(icon: icon, title: tr(title), subtitle: tr(note)),
+            // Запись из уведомлений и правила разбора есть только на Android
+            if (Notices.platformReads || !_noticeRows.contains(title))
+              SettingsRow(icon: icon, title: tr(title), subtitle: trOs(note)),
         ]),
         const SizedBox(height: 10),
         Padding(
@@ -735,6 +763,49 @@ class _Features extends StatelessWidget {
   }
 }
 
+/// Условия и политика под кнопкой оформления.
+///
+/// Правило App Store 3.1.2(a): у подписки с продлением обе ссылки стоят в
+/// самом приложении, рядом с покупкой. Без них проверка возвращает версию.
+class _Legal extends StatelessWidget {
+  const _Legal();
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    final style = TextButton.styleFrom(
+      foregroundColor: muted,
+      minimumSize: const Size(0, 36),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      textStyle: const TextStyle(
+        fontFamily: AppTheme.bodyFont,
+        fontSize: 12,
+        decoration: TextDecoration.underline,
+      ),
+    );
+
+    Widget link(String label, String url) => TextButton(
+          style: style,
+          onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+          child: Text(label),
+        );
+
+    // Обе ссылки всегда одной строкой: на узком экране ряд чуть ужимается,
+    // а не переносит вторую ссылку и не раздувает низ витрины
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          link(tr('plusTerms'), plusTermsUrl(kStore)),
+          const SizedBox(width: 14),
+          link(tr('plusPrivacy'), kPrivacy),
+        ],
+      ),
+    );
+  }
+}
+
 /// Что бесплатно навсегда. Блок обязателен: витрина подписки без него читается
 /// как объявление о том, что приложение закрывается на замок.
 class _Free extends StatelessWidget {
@@ -750,7 +821,9 @@ class _Free extends StatelessWidget {
         SettingsGroup([
           SettingsBlock(
             child: Text(
-              tr('plusFreeText'),
+              Notices.platformReads
+                  ? '${tr('plusFreeText')} ${tr('plusFreeNotices')}'
+                  : tr('plusFreeText'),
               style: TextStyle(
                 fontFamily: AppTheme.bodyFont,
                 fontSize: 14,

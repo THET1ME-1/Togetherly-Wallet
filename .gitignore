@@ -86,3 +86,7 @@ server/
 # Служебное локальных инструментов
 .impeccable/
 /android/build/
+
+# Рабочие планы и журнал их исполнения: черновая кухня, не исходник
+docs/superpowers/plans/
+.superpowers/

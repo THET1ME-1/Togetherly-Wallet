@@ -173,6 +173,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final width = MediaQuery.sizeOf(context).width;
     final big = width < 360 ? 25.0 : 28.0;
 
+    // С открытой клавиатурой полям мало места: шапка, место под ошибку и
+    // нижняя строка уходят, а поля прокручиваются. Иначе поля вылезали вниз
+    // поверх заголовка (WALLET-7 на планшете, WALLET-8 на телефоне).
+    final keyboard =
+        _step != _Step.intro && MediaQuery.viewInsetsOf(context).bottom > 0;
+
     return Scaffold(
       backgroundColor: tm.bg,
       body: Stack(children: [
@@ -181,6 +187,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
         // теме переворачивается в тёмные точки по белому.
         Positioned.fill(child: GridBackdrop(dark: tm.dark)),
         SafeArea(
+        // На планшете форма не растягивается во всю ширину: поле и кнопка в
+        // тысячу с лишним точек читаются полосой, а не формой (WALLET-7)
+        child: Center(
+        child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
         child: Padding(
           // Клавиатуру отбивает САМ Scaffold (`resizeToAvoidBottomInset`), и
           // добавлять её высоту здесь второй раз нельзя: экран переполнялся
@@ -237,13 +248,21 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               // которым не хватило места, не рисуются вовсе
                               // (14.09.2026).
                               final need =
-                                  (_step == _Step.register ? 3 : 2) * 68 + 92;
+                                  (_step == _Step.register ? 3 : 2) * 68 +
+                                      (keyboard ? 20 : 92);
                               final room =
                                   (box.maxHeight - need).clamp(0.0, 300.0);
-                              return Column(
+                              // Поля прижаты к низу, а не влезут — листаются:
+                              // вылезти вниз на заголовок им больше некуда
+                              return SingleChildScrollView(
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: box.maxHeight,
+                                  ),
+                                  child: Column(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  if (room > 96)
+                                  if (!keyboard && room > 96)
                                     SizedBox(
                                       height: room,
                                       child: FittedBox(
@@ -252,12 +271,38 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                         child: _Bits(width: width),
                                       ),
                                     ),
+                                  // С клавиатурой над полями встаёт заголовок
+                                  // поменьше, если ему хватает места: плашки в
+                                  // такой щели ужимались в россыпь крошек
+                                  if (keyboard && room >= 64)
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        tr(_step == _Step.register
+                                            ? 'authRegisterTitle'
+                                            : 'authSignInTitle'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontFamily: AppTheme.displayFont,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.18,
+                                          letterSpacing: -0.4,
+                                          color: tm.text,
+                                        ),
+                                      ),
+                                    ),
                                   const SizedBox(height: 20),
                             // Поля собраны БЛАНКОМ: подпись сверху, ввод
                             // крупно, тонкая линия снизу. Три серых бруска
                             // подряд человек назвал ужасом (13.09.2026) — и
                             // был прав: иерархии в них не было никакой.
                             AutofillGroup(
+                              // Ключ держит поля, когда соседи появляются и
+                              // уходят: без него Flutter собрал бы их заново,
+                              // и клавиатура закрылась бы
+                              key: const ValueKey('auth-fields'),
                               child: Column(children: [
                                 if (_step == _Step.register) ...[
                                   _Field(
@@ -302,18 +347,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 ),
                               ]),
                             ),
-                            const SizedBox(height: 24),
                             // Приложением можно пользоваться и без аккаунта.
                             // Строка живёт ЗДЕСЬ, а не внизу: низ экрана при
                             // переходе не шевелится вовсе.
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: _Quiet(
-                                text: tr('authSkip'),
-                                onTap: _busy ? null : widget.account.stayLocal,
+                            if (!keyboard) ...[
+                              const SizedBox(height: 24),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: _Quiet(
+                                  text: tr('authSkip'),
+                                  onTap: _busy ? null : widget.account.stayLocal,
+                                ),
                               ),
-                            ),
+                            ],
                                 ],
+                                  ),
+                                ),
                               );
                             }),
                           ),
@@ -323,6 +372,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                 },
               ),
             ),
+            if (!keyboard)
             Align(
               alignment: Alignment.centerLeft,
               child: AnimatedSwitcher(
@@ -395,7 +445,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
             // подпрыгивал при неверном пароле («уезжает наверх, если код
             // неверный», 13.09.2026).
             SizedBox(
-              height: 34,
+              height: keyboard && _error == null ? 0 : 34,
               child: _error == null
                   ? null
                   : Row(children: [
@@ -416,7 +466,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                     ]),
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: keyboard ? 10 : 20),
             Row(children: [
               Expanded(
                 child: FilledButton(
@@ -442,7 +492,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                     size: 18, color: tm.onAccent),
                                 const SizedBox(width: 8),
                               ],
-                              Text(_action),
+                              // На узком телефоне рядом с кружками входа
+                              // «Создать аккаунт» не влезала: подпись
+                              // ужимается, а не режется
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(_action, maxLines: 1),
+                                ),
+                              ),
                             ],
                           ),
                   ),
@@ -452,9 +510,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               // Те же двери, что в Togetherly: учётка одна на экосистему.
               AuthProviderRow(busy: _busy, onPick: _withProvider),
             ]),
-            const SizedBox(height: 14),
-            _Switcher(step: _step, onGo: _go),
+            if (!keyboard) ...[
+              const SizedBox(height: 14),
+              _Switcher(step: _step, onGo: _go),
+            ],
           ]),
+        ),
+        ),
         ),
         ),
       ]),

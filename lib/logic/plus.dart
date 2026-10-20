@@ -10,6 +10,8 @@
 /// в заложниках, второй раз никому не продашь.
 library;
 
+import '../data/links.dart';
+
 /// Откуда пришёл талон.
 enum PlusSource {
   /// Google Play.
@@ -335,3 +337,18 @@ int plusSaving(PlusPlan plan, {PlusPrice price = PlusPrice.rub}) {
   final save = (1 - mine / full) * 100;
   return save <= 0 ? 0 : save.round();
 }
+
+/// Куда ведёт «Условия использования» на витрине.
+///
+/// Правило App Store 3.1.2(a): у подписки с продлением ссылки на условия и
+/// политику стоят в самом приложении. Сборке App Store хватает стандартного
+/// соглашения Apple, остальным — наших общих условий.
+String plusTermsUrl(String store) => store == 'appstore' ? kAppleEula : kTerms;
+
+/// Ключ строки о продлении: магазин продлевает подписку сам, и человек
+/// узнаёт об этом до оплаты. У сборок с оплатой через lava строки нет.
+String? plusRenewalNote(String store) => switch (store) {
+      'appstore' => 'plusRenewApple',
+      'play' => 'plusRenewPlay',
+      _ => null,
+    };

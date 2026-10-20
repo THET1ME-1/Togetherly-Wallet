@@ -230,12 +230,13 @@ void main() {
 
       // Блок «бесплатно навсегда» обязателен: без него витрина читается как
       // объявление о том, что приложение закрывается на замок.
+      // На Android к блоку прибавляется фраза про уведомления банка
       await tester.scrollUntilVisible(
-        find.text(tr('plusFreeText')),
+        find.textContaining(tr('plusFreeText')),
         250,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text(tr('plusFreeText')), findsOneWidget);
+      expect(find.textContaining(tr('plusFreeText')), findsOneWidget);
     });
 
     testWidgets('у действующей подписки вместо цен — срок', (tester) async {

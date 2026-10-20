@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../data/store.dart';
@@ -67,6 +68,11 @@ class Notices {
 
   /// Есть ли смысл вообще показывать чтение уведомлений.
   static bool get supported => !kIsTest && Platform.isAndroid;
+
+  /// Умеет ли платформа читать уведомления в принципе. Только Android: на
+  /// iPhone доступа к ним нет ни у одного приложения, и витрина с настройками
+  /// о разборе молчат, а не называют другую систему (правило App Store 2.3.10).
+  static bool get platformReads => defaultTargetPlatform == TargetPlatform.android;
 
   /// В тестах и на вебе каналов нет: пусть будет одна проверка, а не try в
   /// каждом методе.

@@ -29,5 +29,13 @@ const String kTikTok = 'https://www.tiktok.com/@sandt.company';
 /// 404 вовсе (16.09.2026).
 const String kPrivacy = 'https://togetherly.day/wallet-privacy/';
 
+/// Условия использования: общие для всех приложений Togetherly, аккаунт один.
+const String kTerms = 'https://togetherly.day/terms/';
+
+/// Стандартное соглашение Apple с пользователем. Сборке App Store его
+/// достаточно: своё соглашение Apple просит только тех, кто его завёл.
+const String kAppleEula =
+    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
 /// Страница про общий аккаунт экосистемы — на неё ведёт подпись на входе.
 const String kEcosystem = 'https://togetherly.day/#download';

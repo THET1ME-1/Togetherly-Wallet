@@ -709,7 +709,13 @@ class _OperationScreenState extends State<OperationScreen> {
                   children: [
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Column(
+                      // Касание суммы возвращает клавиши: вкладку над цифрами
+                      // не замечают, а руки тянутся к самому числу (WALLET-1)
+                      child: GestureDetector(
+                        key: const ValueKey('op-amount'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => setState(() => _panel = _OpPanel.keys),
+                        child: Column(
                         children: [
                           // Число ужимается, а не обрезается: миллион с
                           // валютой 34-м кеглем не влезает, а терять цифры у
@@ -768,6 +774,7 @@ class _OperationScreenState extends State<OperationScreen> {
                             ),
                           ),
                         ],
+                      ),
                       ),
                     ),
                     const SizedBox(width: 10),

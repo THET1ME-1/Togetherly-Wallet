@@ -1955,16 +1955,42 @@ class Store extends ChangeNotifier {
     final next = code.trim().toUpperCase();
     if (next.isEmpty || next == _db.baseCurrency) return;
     _mark('settings:base');
+    // «Наличные», которые приложение завело само, переходят в новую валюту:
+    // трата берёт валюту счёта, и без этого новая запись стояла бы в прежней
+    // (WALLET-2). Счета, заведённые человеком, свою валюту не меняют.
+    final old = _db.baseCurrency;
+    final accounts = [
+      for (final a in _db.accounts)
+        if (a.currency == old && _untouchedCash(a))
+          a.copyWith(currency: next)
+        else
+          a,
+    ];
+    for (final a in _db.accounts) {
+      if (a.currency == old && _untouchedCash(a)) _mark('acc:${a.name}');
+    }
     _apply(
       _db.copyWith(
         baseCurrency: next,
         pair: _db.pair.copyWith(baseCurrency: next),
+        accounts: accounts,
         // Курс базовой валюты к себе самой не хранится: он всегда единица.
         rates: {..._db.rates}..remove(next),
       ),
-      
     );
   }
+
+  /// «Наличные», которые приложение завело само и которых человек не
+  /// касался: ни записи, ни цвета, ни значка, ни банка, ни хозяина.
+  bool _untouchedCash(Account a) =>
+      a.name == tr('accountDefaultName') &&
+      a.kind == AccountKind.cash &&
+      a.color == null &&
+      a.icon == null &&
+      a.bank == null &&
+      a.last4 == null &&
+      (a.owner ?? '').isEmpty &&
+      !_db.transactions.any((t) => t.account == a.name);
 
   /// Курс: сколько базовой валюты стоит единица `code`.
   void setRate(String code, double? value) {
@@ -2391,16 +2417,7 @@ class Store extends ChangeNotifier {
   /// счетов нет, `seedCash` заведёт их заново после круга синхронизации.
   void forgetSpareCash() {
     final name = tr('accountDefaultName');
-    if (_db.transactions.any((t) => t.account == name)) return;
-    final spare = _db.accounts.where((a) =>
-        a.name == name &&
-        a.kind == AccountKind.cash &&
-        a.color == null &&
-        a.icon == null &&
-        a.bank == null &&
-        a.last4 == null &&
-        (a.owner ?? '').isEmpty);
-    if (spare.isEmpty) return;
+    if (!_db.accounts.any(_untouchedCash)) return;
     _apply(_db.copyWith(
       accounts: _db.accounts.where((a) => a.name != name).toList(),
     ));

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'dict/accounts.dart';
 import 'dict/core.dart';
 import 'dict/auth.dart';
@@ -63,6 +65,13 @@ MoneyLanguage appLanguage = MoneyLanguage.ru;
 
 /// Строка по ключу на текущем языке.
 String tr(String key) => trDict(key, appLanguage.code);
+
+/// Строка с поправкой на iPhone: если в словаре есть `<ключ>Ios`, на iPhone
+/// берётся она. Так «отпечаток» на iPhone становится Face ID или Touch ID.
+String trOs(String key) =>
+    defaultTargetPlatform == TargetPlatform.iOS && kMoneyStrings.containsKey('${key}Ios')
+        ? tr('${key}Ios')
+        : tr(key);
 
 /// Форма слова при числе: `ключ.one`, `ключ.few`, `ключ.many`, `ключ.other`.
 ///

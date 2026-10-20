@@ -107,6 +107,26 @@ const Map<String, Map<String, String>> plusStrings = {
     'ru': 'Одна подписка на пару: партнёру платить не нужно',
     'en': 'One subscription per couple: your partner pays nothing',
   },
+  'plusTerms': {
+    'ru': 'Условия использования',
+    'en': 'Terms of Use',
+  },
+  'plusPrivacy': {
+    'ru': 'Политика конфиденциальности',
+    'en': 'Privacy Policy',
+  },
+  'plusRenewApple': {
+    'ru': 'Подписка продлевается сама, пока вы её не отмените. Отменить можно '
+        'в настройках Apple ID не позже чем за сутки до продления.',
+    'en': 'The subscription renews automatically until you cancel it. Cancel '
+        'in your Apple ID settings at least 24 hours before it renews.',
+  },
+  'plusRenewPlay': {
+    'ru': 'Подписка продлевается сама, пока вы её не отмените. Отменить можно '
+        'в Google Play не позже чем за сутки до продления.',
+    'en': 'The subscription renews automatically until you cancel it. Cancel '
+        'in Google Play at least 24 hours before it renews.',
+  },
   'plusActive': {
     'ru': 'Подписка работает',
     'en': 'Subscription active',
@@ -204,6 +224,11 @@ const Map<String, Map<String, String>> plusStrings = {
   'plusFeatureLockNote': {
     'ru': 'PIN и отпечаток',
     'en': 'PIN and fingerprint',
+  },
+  // На iPhone вход по лицу или по кнопке «Домой», а не по отпечатку
+  'plusFeatureLockNoteIos': {
+    'ru': 'PIN, Face ID или Touch ID',
+    'en': 'PIN, Face ID or Touch ID',
   },
   'plusFeatureBackups': {
     'ru': 'Возврат к любому дню',
@@ -336,11 +361,15 @@ const Map<String, Map<String, String>> plusStrings = {
     'ru': 'Счета и операции без счёта, категории, история и поиск, отчёты, '
         'работа без сети, выгрузка базы. Синхронизация пары и хранение её '
         'данных на сервере. Всё, что делается вдвоём: общие и личные счета, '
-        'дележ, сальдо, скрытые траты, разговор под операцией. '
-        'Разбор банковских уведомлений с подтверждением.',
+        'дележ, сальдо, скрытые траты, разговор под операцией.',
     'en': 'Unlimited accounts and records, categories, history and search, '
         'reports, offline work, database export. Everything you do together: '
         'shared and personal accounts, splitting, balances, hidden spending, '
-        'the thread under a record. Bank notifications with confirmation.',
+        'the thread under a record.',
+  },
+  // Только на Android: на iPhone читать уведомления не может ни одно приложение
+  'plusFreeNotices': {
+    'ru': 'Разбор банковских уведомлений с подтверждением.',
+    'en': 'Bank notifications with confirmation.',
   },
 };
